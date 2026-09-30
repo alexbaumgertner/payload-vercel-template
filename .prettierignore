@@ -1,0 +1,6 @@
+pnpm-lock.yaml
+src/payload-types.ts
+src/migrations/
+src/app/(payload)/
+.claude/skills/payload/
+.next/

@@ -1,0 +1,34 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env
+.env
+.env*.local
+
+# payload local uploads
+/media
+
+# testing
+/coverage
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# claude code local overrides
+.claude/settings.local.json
+
+# misc
+.DS_Store
+*.pem
+.vercel
+.idea/
+npm-debug.log*

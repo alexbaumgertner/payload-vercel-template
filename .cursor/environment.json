@@ -1,0 +1,10 @@
+{
+  "install": "bash scripts/cloud-setup.sh",
+  "start": "sudo service postgresql start",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "pnpm dev"
+    }
+  ]
+}

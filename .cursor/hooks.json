@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      { "command": "node scripts/agent-hooks/format.mjs --tool=cursor", "timeout": 20 }
+    ],
+    "beforeShellExecution": [
+      { "command": "node scripts/agent-hooks/guard-shell.mjs --tool=cursor", "timeout": 10 }
+    ],
+    "stop": [
+      {
+        "command": "node scripts/agent-hooks/stop-typecheck.mjs --tool=cursor",
+        "timeout": 120,
+        "loop_limit": 3
+      }
+    ]
+  }
+}

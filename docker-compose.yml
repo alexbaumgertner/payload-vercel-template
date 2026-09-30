@@ -1,0 +1,18 @@
+# Local Postgres for machines with Docker: `docker compose up -d`
+# Matches DATABASE_URL in .env.example. The init script also creates the app_test database.
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./scripts/docker-init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+
+volumes:
+  pgdata:

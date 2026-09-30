@@ -1,0 +1,13 @@
+---
+description: How to write and run tests
+globs: tests/**/*,vitest.config.mts,playwright.config.ts
+alwaysApply: false
+---
+
+- Unit (`tests/unit/*.unit.spec.ts`, jsdom): Zod schemas, pure helpers, small client components. No database.
+- Integration (`tests/int/*.int.spec.ts`, node): services and collection access via the Payload Local API against the
+  `app_test` database (set in `tests/helpers/int-setup.ts`). Clean up the collections you touch; call `payload.destroy()` in `afterAll`.
+  Pass `context: { disableRevalidate: true }` when creating docs whose hooks revalidate.
+- E2E (`tests/e2e/*.e2e.spec.ts`): real user flows only — landing, waitlist, admin. Use role/label locators, relative URLs
+  (baseURL is configured), unique emails per run/project. Runs on desktop and mobile projects.
+- A bug fix starts with a failing test that reproduces it.
