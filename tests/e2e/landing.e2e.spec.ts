@@ -16,7 +16,10 @@ test.describe('Landing page', () => {
     await page.getByPlaceholder('you@company.com').fill('not-an-email')
     await page.getByRole('button', { name: 'Join the waitlist' }).click()
 
-    await expect(page.getByRole('alert')).toHaveText('Enter a valid email address.')
+    // Scoped to <main>: Next.js renders its own role="alert" route announcer.
+    await expect(page.getByRole('main').getByRole('alert')).toHaveText(
+      'Enter a valid email address.',
+    )
   })
 
   test('joins the waitlist with a valid email', async ({ page }, testInfo) => {
@@ -26,7 +29,7 @@ test.describe('Landing page', () => {
     await page.getByPlaceholder('you@company.com').fill(email)
     await page.getByRole('button', { name: 'Join the waitlist' }).click()
 
-    await expect(page.getByRole('status')).toContainText("You're on the list")
+    await expect(page.getByRole('main').getByRole('status')).toContainText("You're on the list")
   })
 })
 

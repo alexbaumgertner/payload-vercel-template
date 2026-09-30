@@ -55,7 +55,7 @@ export function WaitlistForm({ source }: { source: string }) {
         </button>
       </div>
 
-      <p id={errorId} className={styles.error} role="alert" aria-live="polite">
+      <p id={errorId} className={styles.error} role="alert">
         {emailError}
       </p>
     </form>
