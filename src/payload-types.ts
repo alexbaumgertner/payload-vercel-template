@@ -71,6 +71,7 @@ export interface Config {
     media: Media;
     changelog: Changelog;
     'waitlist-signups': WaitlistSignup;
+    'auth-codes': AuthCode;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     changelog: ChangelogSelect<false> | ChangelogSelect<true>;
     'waitlist-signups': WaitlistSignupsSelect<false> | WaitlistSignupsSelect<true>;
+    'auth-codes': AuthCodesSelect<false> | AuthCodesSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -213,6 +215,22 @@ export interface WaitlistSignup {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "auth-codes".
+ */
+export interface AuthCode {
+  id: number;
+  email: string;
+  codeHash: string;
+  expiresAt: string;
+  attempts?: number | null;
+  requestIp?: string | null;
+  delivered?: boolean | null;
+  consumedAt?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
 export interface PayloadKv {
@@ -250,6 +268,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'waitlist-signups';
         value: number | WaitlistSignup;
+      } | null)
+    | ({
+        relationTo: 'auth-codes';
+        value: number | AuthCode;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -354,6 +376,21 @@ export interface ChangelogSelect<T extends boolean = true> {
 export interface WaitlistSignupsSelect<T extends boolean = true> {
   email?: T;
   source?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "auth-codes_select".
+ */
+export interface AuthCodesSelect<T extends boolean = true> {
+  email?: T;
+  codeHash?: T;
+  expiresAt?: T;
+  attempts?: T;
+  requestIp?: T;
+  delivered?: T;
+  consumedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

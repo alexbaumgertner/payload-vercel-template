@@ -17,7 +17,8 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · Vitest 5 · Playwrigh
 - `pnpm generate:types` — after ANY collection/field change; commit `src/payload-types.ts`
 - `pnpm generate:importmap` — after adding custom admin components
 - `pnpm migrate:create <name>` — before merging schema changes (see "Database")
-- `pnpm seed` — idempotent demo data + admin user
+- `pnpm seed` — idempotent demo data + `admin@example.com`
+- `pnpm create-admin <email>` — add a user (there is no sign-up or first-user screen)
 
 ## Layout
 
@@ -44,6 +45,18 @@ docs/decisions.md     why things are the way they are — read before re-archite
 - UI must handle empty, loading and error states and work at 360px width.
 - No `any`, no `@ts-ignore`. Prefer `satisfies` and inferred Zod types.
 - Hooks that call `revalidatePath` must respect `req.context.disableRevalidate`.
+
+## Auth (passwordless, email one-time code)
+
+- No passwords anywhere: `users` has `disableLocalStrategy`, so `/api/users/login` is refused.
+- Flow: `/admin/login` → `features/auth/actions.ts#loginAction` → `otp.ts` (hashed 6-digit code, TTL, attempts,
+  DB rate limits via the hidden `auth-codes` collection) → signed `indie_session` cookie (`session.ts`)
+  → Payload reads it through `strategy.ts`. Logout = `logoutAction` (custom nav button).
+- `otp.ts`, `session.ts`, `strategy.ts`, `store.ts` stay framework-free (no `server-only`, no `next/*`):
+  Payload's CLI and the e2e helpers import them.
+- Never weaken: identical responses for unknown emails, HMAC-only storage, `timingSafeEqual`, same-origin redirects.
+- Local dev without `RESEND_API_KEY`: the code is printed in the `pnpm dev` console. E2E issues a known code
+  via `tests/helpers/login.ts` instead of reading email.
 
 ## Database
 

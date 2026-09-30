@@ -12,6 +12,9 @@ Flag as **blocking**:
 - Migrations that drop columns/tables holding data where a rename was intended.
 - New env vars not added to `src/lib/env.ts` and `.env.example`.
 - Secrets, tokens or connection strings committed anywhere.
+- Auth regressions in `src/features/auth/**`: storing or logging plaintext codes, comparing secrets without
+  `timingSafeEqual`, different responses/timing for unknown vs. known emails, removing rate limits,
+  redirects that accept absolute or protocol-relative URLs, re-enabling the password (local) strategy.
 
 Flag as **should fix**:
 

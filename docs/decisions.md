@@ -2,6 +2,15 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## Passwordless login with email one-time codes
+
+Ported from hht-research-platform. No passwords to leak, reset or brute-force; admins are few and
+already live in their inbox. Codes are HMAC-hashed, expire in 10 minutes, burn after 5 wrong tries;
+rate limits (3 per email / 15 min, 20 per IP / hour) are counted in Postgres because serverless
+instances share no memory. Session = our own signed cookie read by a Payload auth strategy, since
+Payload's JWT flow is tied to the disabled local strategy. Mutations are Server Actions, not route handlers.
+Revisit if: we need SSO/OAuth or customer-facing accounts (then consider Better Auth).
+
 ## Local dev uses Payload push; production uses migrations
 
 Push keeps iteration fast (no migration per field tweak). Migrations are generated once per merged change and applied in the Vercel build (`pnpm build:vercel`), not on cold start, so requests never wait on DDL.

@@ -7,6 +7,7 @@ What's inside out of the box:
 - Landing page with a **waitlist** (Server Action + Zod + honeypot, stored in Postgres, private to admins)
 - **Changelog** managed in the Payload admin, with scheduled publishing and on-save revalidation
 - Payload admin at `/admin` (users, media, waitlist, changelog); media goes to Vercel Blob when configured
+- **Passwordless login**: email → 6-digit one-time code (hashed, 10-min TTL, attempt and rate limits, no account enumeration), sent via Resend
 - Unit, integration (real Postgres) and e2e (desktop + mobile) tests
 - `AGENTS.md`, scoped Cursor rules, skills, a reviewer subagent, safety hooks, Bugbot rules, MCP config
 
@@ -33,9 +34,17 @@ pnpm install
 cp .env.example .env               # set PAYLOAD_SECRET: openssl rand -hex 32
 # create databases (skip if you use docker compose):
 createdb app && createdb app_test  # or: bash scripts/cloud-setup.sh on Ubuntu
-pnpm seed                          # demo changelog + admin@example.com / change-me-please
+pnpm seed                          # demo changelog + user admin@example.com
 pnpm dev                           # http://localhost:43127  ·  admin: /admin
 ```
+
+**Signing in:** open `/admin`, enter `admin@example.com`, click "Send login code". Without `RESEND_API_KEY` the code is printed in the `pnpm dev` terminal:
+
+```
+[auth] RESEND_API_KEY not set — login code for admin@example.com: 381904
+```
+
+Add more users with `pnpm create-admin you@example.com` (there is no sign-up screen). Codes are valid for 10 minutes, work once and burn after 5 wrong attempts; each email can request 3 codes per 15 minutes and each IP 20 per hour.
 
 ## Scripts
 
@@ -48,6 +57,7 @@ pnpm dev                           # http://localhost:43127  ·  admin: /admin
 | `pnpm generate:types`        | Regenerate `src/payload-types.ts` after schema changes                      |
 | `pnpm migrate:create <name>` | Create a migration before merging schema changes                            |
 | `pnpm seed`                  | Idempotent demo data                                                        |
+| `pnpm create-admin <email>`  | Add a user who can sign in with an email code                               |
 
 ## Deploy (Vercel + Neon)
 
@@ -55,7 +65,9 @@ pnpm dev                           # http://localhost:43127  ·  admin: /admin
 2. Add the **Neon** integration from the Vercel Marketplace (gives `DATABASE_URL`, with a DB branch per preview) — use the pooled URL.
 3. Add **Vercel Blob** storage (gives `BLOB_READ_WRITE_TOKEN`) so media uploads persist.
 4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL`.
-5. After the first deploy, create your admin user at `/admin`.
+5. Add **Resend** (Vercel Marketplace or resend.com): set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` on a verified domain. In production, login fails loudly without them instead of pretending the code was sent.
+6. Create the first user against the production database once, from your machine:
+   `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.
 

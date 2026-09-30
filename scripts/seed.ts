@@ -72,14 +72,13 @@ async function seed() {
   const context = { disableRevalidate: true }
 
   const email = process.env.SEED_ADMIN_EMAIL ?? 'admin@example.com'
-  const password = process.env.SEED_ADMIN_PASSWORD ?? 'change-me-please'
   const { totalDocs: userCount } = await payload.count({
     collection: 'users',
     where: { email: { equals: email } },
   })
   if (userCount === 0) {
-    await payload.create({ collection: 'users', data: { email, password } })
-    payload.logger.info(`Created admin ${email} / ${password}`)
+    await payload.create({ collection: 'users', data: { email } })
+    payload.logger.info(`Created admin ${email} (sign in with an email code)`)
   }
 
   for (const entry of entries) {

@@ -7,6 +7,8 @@ const __filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(__filename)
 
 const nextConfig: NextConfig = {
+  // Bottom-left (the default) covers the Payload admin nav's "Log out" button.
+  devIndicators: { position: 'bottom-right' },
   images: {
     localPatterns: [
       {

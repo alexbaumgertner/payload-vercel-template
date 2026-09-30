@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { login } from '../helpers/login'
-import { cleanupTestUser, seedTestUser, testUser } from '../helpers/seedUser'
+import { clearTestLoginCodes, login } from '../helpers/login'
+import { cleanupTestUser, seedTestUser } from '../helpers/seedUser'
 
 test.describe('Admin panel', () => {
   test.describe.configure({ mode: 'serial' })
@@ -9,13 +9,14 @@ test.describe('Admin panel', () => {
   let page: Page
 
   test.beforeAll(async ({ browser }, testInfo) => {
-    await seedTestUser(testInfo.project.name)
+    await clearTestLoginCodes()
+    const email = await seedTestUser(`panel-${testInfo.project.name}`)
     page = await (await browser.newContext()).newPage()
-    await login({ page, user: testUser(testInfo.project.name) })
+    await login({ page, email })
   })
 
   test.afterAll(async ({}, testInfo) => {
-    await cleanupTestUser(testInfo.project.name)
+    await cleanupTestUser(`panel-${testInfo.project.name}`)
   })
 
   test('lists waitlist signups', async () => {

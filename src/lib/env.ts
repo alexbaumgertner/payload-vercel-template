@@ -4,6 +4,8 @@ const serverEnvSchema = z.object({
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
   PAYLOAD_SECRET: z.string().min(16, 'PAYLOAD_SECRET must be at least 16 characters'),
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
+  RESEND_API_KEY: z.string().min(1).optional(),
+  EMAIL_FROM_ADDRESS: z.email().default('onboarding@resend.dev'),
   NEXT_PUBLIC_SITE_URL: z.url().default('http://localhost:43127'),
 })
 
