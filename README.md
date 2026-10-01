@@ -85,7 +85,10 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
 6. Optional — **Sentry**: set `SENTRY_DSN` to turn on error monitoring (server, client, Server Actions). Add
    `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` for readable stack traces. Without `SENTRY_DSN` nothing
    Sentry-related is built or loaded. Details: `docs/decisions.md`.
-7. Create the first user against the production database once, from your machine:
+7. Optional — **analytics**: enable Web Analytics in the Vercel project and set `ANALYTICS_PROVIDER=vercel` for page
+   views plus the typed product events in `src/lib/analytics.ts`. Default `none` sends nothing; visitors with Do Not
+   Track / Global Privacy Control are never counted.
+8. Create the first user against the production database once, from your machine:
    `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.

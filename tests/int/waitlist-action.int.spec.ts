@@ -19,6 +19,14 @@ const sentry = vi.hoisted(() => ({
 }))
 vi.mock('@sentry/nextjs', () => sentry)
 
+const request = vi.hoisted(() => ({ headers: new Headers() }))
+vi.mock('next/headers', () => ({ headers: async () => request.headers }))
+
+const vercel = vi.hoisted(() => ({
+  track: vi.fn(async (_event: string, _props?: object, _options?: object) => {}),
+}))
+vi.mock('@vercel/analytics/server', () => vercel)
+
 let payload: Payload
 
 const submit = (fields: Record<string, string>) => {
@@ -35,6 +43,8 @@ describe('joinWaitlistAction', () => {
 
   beforeEach(async () => {
     vi.stubEnv('SENTRY_DSN', '')
+    vi.stubEnv('ANALYTICS_PROVIDER', '')
+    request.headers = new Headers({ 'user-agent': 'int-test' })
     vi.clearAllMocks()
     await payload.delete({ collection: 'waitlist-signups', where: { id: { exists: true } } })
   })
@@ -93,6 +103,48 @@ describe('joinWaitlistAction', () => {
     })
     expect(log).toHaveBeenCalledWith('[waitlist] failed to save signup', expect.any(Error))
     log.mockRestore()
+  })
+
+  it('sends no analytics without ANALYTICS_PROVIDER', async () => {
+    await submit({ email: 'quiet@example.com', source: 'landing-hero' })
+
+    expect(vercel.track).not.toHaveBeenCalled()
+  })
+
+  it('tracks a new signup once, with the source only', async () => {
+    vi.stubEnv('ANALYTICS_PROVIDER', 'vercel')
+
+    await submit({ email: 'counted@example.com', source: 'landing-hero' })
+    await submit({ email: 'counted@example.com', source: 'landing-hero' })
+
+    expect(vercel.track).toHaveBeenCalledTimes(1)
+    expect(vercel.track).toHaveBeenCalledWith(
+      'waitlist_joined',
+      { source: 'landing-hero' },
+      { headers: { 'user-agent': 'int-test' } },
+    )
+  })
+
+  it('tracks nothing for bots, invalid emails or failed saves', async () => {
+    vi.stubEnv('ANALYTICS_PROVIDER', 'vercel')
+    vi.mocked(joinWaitlist).mockRejectedValueOnce(new Error('connection refused'))
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {})
+
+    await submit({ email: 'down@example.com' })
+    await submit({ email: 'bot@example.com', company: 'Spam Inc' })
+    await submit({ email: 'not-an-email' })
+
+    expect(vercel.track).not.toHaveBeenCalled()
+  })
+
+  it('tracks nothing when the visitor sends Global Privacy Control', async () => {
+    vi.stubEnv('ANALYTICS_PROVIDER', 'vercel')
+    request.headers = new Headers({ 'sec-gpc': '1' })
+
+    const state = await submit({ email: 'private@example.com', source: 'landing-hero' })
+
+    expect(state.status).toBe('success')
+    expect(vercel.track).not.toHaveBeenCalled()
   })
 
   it('never touches Sentry when SENTRY_DSN is unset, even on failure', async () => {

@@ -11,12 +11,18 @@ type Header = { key: string; value: string }
 
 const BLOB_STORAGE = 'https://*.public.blob.vercel-storage.com'
 const GRAVATAR = 'https://www.gravatar.com'
+// Vercel Web Analytics loads its debug script from here in dev; production serves it same-origin.
+const VERCEL_ANALYTICS_DEV = 'https://va.vercel-scripts.com'
 
 export function contentSecurityPolicy({ isDev }: { isDev: boolean }): string {
   const directives: Record<string, string[]> = {
     'default-src': ["'self'"],
     // Next.js inlines bootstrap scripts; dev mode (React Refresh) also needs eval.
-    'script-src': ["'self'", "'unsafe-inline'", ...(isDev ? ["'unsafe-eval'"] : [])],
+    'script-src': [
+      "'self'",
+      "'unsafe-inline'",
+      ...(isDev ? ["'unsafe-eval'", VERCEL_ANALYTICS_DEV] : []),
+    ],
     // Payload admin and next/font inject inline styles.
     'style-src': ["'self'", "'unsafe-inline'"],
     'img-src': ["'self'", 'data:', 'blob:', BLOB_STORAGE, GRAVATAR],

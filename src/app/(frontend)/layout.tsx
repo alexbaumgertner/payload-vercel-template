@@ -2,9 +2,11 @@ import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import type { ReactNode } from 'react'
 
+import { PageViews } from '@/components/PageViews/PageViews'
 import { SiteFooter } from '@/components/SiteFooter/SiteFooter'
 import { SiteHeader } from '@/components/SiteHeader/SiteHeader'
 import { siteConfig } from '@/config/site'
+import { analyticsProvider } from '@/lib/analytics'
 
 import './globals.css'
 
@@ -30,6 +32,7 @@ export default function FrontendLayout({ children }: { children: ReactNode }) {
         <SiteHeader />
         <main>{children}</main>
         <SiteFooter />
+        {analyticsProvider() === 'vercel' && <PageViews />}
       </body>
     </html>
   )

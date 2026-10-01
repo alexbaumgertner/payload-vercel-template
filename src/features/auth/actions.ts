@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 
+import { track } from '@/lib/analytics'
 import { captureServerError, monitorAction } from '@/lib/monitoring/server'
 import { getPayloadClient } from '@/lib/payload'
 
@@ -52,6 +53,7 @@ async function handleLogin(prev: LoginState, formData: FormData): Promise<LoginS
         ? { ...prev, error: result.error }
         : { step: 'email', email, error: result.error }
     }
+    await track('login_code_requested', { resend: prev.step === 'code' }, headers)
     return { step: 'code', email: result.email }
   }
 
@@ -63,6 +65,7 @@ async function handleLogin(prev: LoginState, formData: FormData): Promise<LoginS
 
     const { token, maxAge } = issueToken(result.userId, deps.secret)
     ;(await cookies()).set(SESSION_COOKIE, token, sessionCookieOptions(maxAge))
+    await track('login_succeeded', {}, headers)
     return { step: 'done', redirectTo: safeRedirect(formData.get('redirect')) }
   }
 

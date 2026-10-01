@@ -13,6 +13,8 @@ const serverEnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  // Product analytics: 'none' (default) sends nothing. See src/lib/analytics.ts.
+  ANALYTICS_PROVIDER: z.enum(['none', 'vercel']).default('none'),
   // Error monitoring is off (no SDK loaded) unless SENTRY_DSN is set. See src/lib/monitoring.
   SENTRY_DSN: z.url().optional(),
   SENTRY_ENVIRONMENT: z.string().min(1).optional(),

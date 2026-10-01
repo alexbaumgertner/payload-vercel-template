@@ -44,6 +44,7 @@ docs/baseline.md      status of auth, i18n, headers, backups, monitoring, analyt
 - Public reads use `overrideAccess: false`. Anything the Local API writes on behalf of a visitor must be validated with Zod first.
 - Mutations from the UI are Server Actions returning a typed state object — not route handlers.
   Wrap them in `monitorAction()`; errors you catch and turn into a message go to `captureServerError()`.
+- Product events go through `track()` from `src/lib/analytics.ts`; add new events to its catalog. Never put emails or ids in props.
 - Every new env var: add to `src/lib/env.ts` schema AND `.env.example`.
 - Styling: CSS Modules + tokens from `globals.css`. No Tailwind, no CSS-in-JS, no inline styles except dynamic values.
 - UI must handle empty, loading and error states and work at 360px width.

@@ -2,6 +2,42 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — Product analytics: typed server-side events, off by default, DNT/GPC respected
+
+**Context.** Products built from the template need funnel numbers (waitlist → login) without each one reinventing
+event names or leaking emails into an analytics vendor. Some products will want no analytics at all.
+
+**Compatibility.** `@vercel/analytics@2.0.1` peers: `next >= 13`, `react ^18 || ^19` — fine with Next 16.3.8 /
+React 19.3. Pinned exactly.
+
+**Options for consent.** (a) Cookie/consent banner — a UI and legal decision per product, out of scope for the
+template. (b) Treat the env flag as the operator's opt-in and the browser's Do Not Track / Global Privacy Control as
+the visitor's opt-out. (c) Always on.
+
+**Decision.** (b), with the safest defaults:
+
+- `src/lib/analytics.ts`: `track(event, props, headers)` with a typed catalog (`waitlist_joined {source}`,
+  `login_code_requested {resend}`, `login_succeeded {}`). Props are Zod `strictObject`s validated at runtime; unknown
+  keys, values over 64 chars or anything containing `@` drop the event with a warning. No user ids, no emails.
+- `ANALYTICS_PROVIDER=none` (default) is a real no-op: the adapter is never imported and request headers are never
+  read. `vercel` sends server-side custom events through `@vercel/analytics/server` (only `user-agent`, IP and the
+  referer without its query string are forwarded) and renders `<PageViews />` (Vercel Web Analytics, cookieless) in the
+  public layout only — not in the Payload admin.
+- `DNT: 1` / `Sec-GPC: 1` request headers ⇒ no server events; `navigator.doNotTrack` / `globalPrivacyControl` ⇒ the
+  page-view `beforeSend` drops the event (the script itself still loads, but sends nothing). Page-view URLs lose their
+  query string and fragment.
+- `track()` never throws and runs only after the user-visible work succeeded: an analytics outage can't break signup
+  or login (tested). It is awaited, so an enabled provider adds one network round-trip to the action; move it into
+  `after()` if that latency matters.
+- Events fire only on real outcomes: `waitlist_joined` only when a row was created (not for duplicates, bots or
+  failures), `login_succeeded` only after the session cookie is set.
+
+**Consequences.** Vercel custom events need a plan that includes them `[verify in dashboard]`; page views work on all
+plans with Web Analytics enabled. The DNT/GPC opt-out is not a substitute for a consent banner where the law requires
+opt-in — a product that needs one should gate `ANALYTICS_PROVIDER` on stored consent. Adding a provider = one adapter
+function in `analytics.ts`; adding an event = one catalog entry (TypeScript then enforces its props at every call site).
+Dev CSP allows `https://va.vercel-scripts.com` (the dev debug script); production loads the tracker same-origin.
+
 ## 2026-10-01 — Sentry for errors only, off unless `SENTRY_DSN` is set
 
 **Context.** Errors were only visible in Vercel logs, and caught errors (waitlist DB failure, mail provider failure)

@@ -12,6 +12,13 @@ describe('security headers', () => {
     expect(csp).not.toMatch(/\bwss?:/)
   })
 
+  it('production CSP loads scripts only from the site itself', () => {
+    const scriptSrc = contentSecurityPolicy({ isDev: false })
+      .split('; ')
+      .find((directive) => directive.startsWith('script-src'))
+    expect(scriptSrc).toBe("script-src 'self' 'unsafe-inline'")
+  })
+
   it('dev CSP allows eval and the HMR websocket', () => {
     const csp = contentSecurityPolicy({ isDev: true })
     expect(csp).toContain("'unsafe-eval'")

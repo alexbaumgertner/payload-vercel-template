@@ -9,7 +9,7 @@ What every product built from this template gets out of the box. Update this tab
 | Security headers   | partial | HSTS, nosniff, Referrer/Permissions-Policy, frame-ancestors enforced; CSP report-only, no violations in a prod build |
 | Backups            | todo    | Relies on Neon/Vercel defaults; no runbook                                                                           |
 | Monitoring         | done    | Sentry (server, client, Server Actions) when `SENTRY_DSN` is set; PII scrubbed; no-op otherwise                      |
-| Analytics          | todo    | None                                                                                                                 |
+| Analytics          | done    | Typed `track()` catalog, no-op by default; Vercel adapter via `ANALYTICS_PROVIDER`; DNT/GPC respected, no PII        |
 | CI                 | done    | GitHub Actions: check, int (Postgres 15), browser, e2e; no secrets; artifacts on failure                             |
 | Dependency updates | done    | Dependabot weekly; Payload / React / Next / dev-tools grouped; majors as separate PRs                                |
 

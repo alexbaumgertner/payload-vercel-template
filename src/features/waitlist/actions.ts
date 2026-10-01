@@ -1,7 +1,9 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { z } from 'zod'
 
+import { track } from '@/lib/analytics'
 import { captureServerError, monitorAction } from '@/lib/monitoring/server'
 import { getPayloadClient } from '@/lib/payload'
 
@@ -37,7 +39,10 @@ async function handleJoin(_prev: WaitlistState, formData: FormData): Promise<Wai
   try {
     const payload = await getPayloadClient()
     // Same response for new and existing emails so the form can't be used to probe the list.
-    await joinWaitlist(payload, parsed.data)
+    const { created } = await joinWaitlist(payload, parsed.data)
+    if (created) {
+      await track('waitlist_joined', { source: parsed.data.source || 'unknown' }, headers)
+    }
     return { status: 'success', message: SUCCESS_MESSAGE }
   } catch (error) {
     console.error('[waitlist] failed to save signup', error)
