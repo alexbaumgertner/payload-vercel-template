@@ -8,6 +8,12 @@
   text-align: center;
 }
 
+/* Keeps the footer below the fold while streaming; otherwise the page pushes it down (layout shift). */
+.pending {
+  min-height: 100dvh;
+  align-content: start;
+}
+
 .title {
   font-size: clamp(1.75rem, 4vw, 2.5rem);
 }
