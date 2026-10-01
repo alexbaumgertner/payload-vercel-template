@@ -4,7 +4,7 @@
       "url": "https://mcp.context7.com/mcp"
     },
     "neon": {
-      "url": "https://mcp.neon.tech/mcp"
+      "url": "https://mcp.neon.tech/mcp?readonly=true"
     },
     "vercel": {
       "url": "https://mcp.vercel.com"

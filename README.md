@@ -103,7 +103,7 @@ The same files drive Cursor and Claude Code:
 | `.cursor/environment.json`                     | Cloud Agents: Postgres + deps via `scripts/cloud-setup.sh`                        |                                        |
 | `.cursor/BUGBOT.md`                            | PR review rules                                                                   |                                        |
 
-The shell guard (`scripts/agent-hooks/guard-shell.mjs`) blocks force pushes, destructive SQL, `migrate:fresh/reset`, connections to `*.neon.tech` and production Vercel commands.
+The shell guard (`scripts/agent-hooks/guard-shell.mjs`) blocks force pushes, destructive SQL, `migrate:fresh/reset/down`, connections to `*.neon.tech`, the Neon CLI and production Vercel commands. The MCP guard (`guard-mcp.mjs`) lets agents read Neon/Vercel metadata and logs but denies writes, deploys, secrets and SQL outside the dev branches in `NEON_AGENT_BRANCH_IDS`; Neon MCP runs with `?readonly=true`. Limits (e.g. cloud agents skip MCP hooks) are listed in `docs/decisions.md`.
 If you enable "third-party configs" in Cursor, it also loads `.claude/settings.json`; the scripts are idempotent and the typecheck hook skips its duplicate run.
 
 Daily loop: `/feature <idea>` → agent writes `docs/stories/NNN-*.md` → you approve → failing tests per acceptance criterion → implementation → hooks format and typecheck → browser check (Chrome DevTools MCP) → `/reviewer` → `/ship`.

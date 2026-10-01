@@ -66,7 +66,8 @@ docs/baseline.md      status of auth, i18n, headers, backups, monitoring, analyt
 - Local dev uses Payload **push** mode (schema syncs automatically). Never run `pnpm migrate` against the dev DB.
 - Production only changes via migrations: after changing collections run `pnpm migrate:create <name>` and commit the files.
   Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
-- Never connect to the production (Neon) database from the agent.
+- Never connect to the production (Neon) database from the agent — not via shell, not via Neon/Vercel MCP.
+  `scripts/agent-hooks/guard-mcp.mjs` blocks it; don't work around a block, ask the human.
 
 ## Workflow
 

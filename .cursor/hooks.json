@@ -5,7 +5,18 @@
       { "command": "node scripts/agent-hooks/format.mjs --tool=cursor", "timeout": 20 }
     ],
     "beforeShellExecution": [
-      { "command": "node scripts/agent-hooks/guard-shell.mjs --tool=cursor", "timeout": 10 }
+      {
+        "command": "node scripts/agent-hooks/guard-shell.mjs --tool=cursor",
+        "timeout": 10,
+        "failClosed": true
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "node scripts/agent-hooks/guard-mcp.mjs --tool=cursor",
+        "timeout": 10,
+        "failClosed": true
+      }
     ],
     "stop": [
       {

@@ -6,7 +6,7 @@
     },
     "neon": {
       "type": "http",
-      "url": "https://mcp.neon.tech/mcp"
+      "url": "https://mcp.neon.tech/mcp?readonly=true"
     },
     "vercel": {
       "type": "http",
