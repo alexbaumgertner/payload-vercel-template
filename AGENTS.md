@@ -3,14 +3,18 @@
 Indie SaaS starter: landing page + waitlist + changelog, with Payload CMS admin at `/admin`.
 Solo-founder project — optimize for shipping small, correct, reversible changes.
 
+Folder-specific rules live in nested `AGENTS.md` files — read the one for the area you touch:
+`src/collections/` (collections, access, payload.config) · `src/features/` (actions, services, Zod) ·
+`src/components/` (UI, CSS Modules, copy; also `src/app/(frontend)/`, `messages/`) · `tests/`.
+
 ## Stack (pinned — do not upgrade or add libraries without being asked)
 
-Next.js 16 (App Router, Turbopack) · Payload 3 · PostgreSQL (Neon in prod) via `@payloadcms/db-postgres` ·
+Node 24 · Next.js 16 (App Router, Turbopack) · Payload 3 · PostgreSQL 18 (Neon in prod) via `@payloadcms/db-postgres` ·
 React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest 5 · Playwright · Vercel (+ Vercel Blob for media).
 
 ## Commands
 
-- `pnpm dev` — http://localhost:43127 (admin: `/admin`)
+- `pnpm dev` — http://localhost:3000 (admin: `/admin`)
 - `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
 - `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)

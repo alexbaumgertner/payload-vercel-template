@@ -5,7 +5,7 @@ import 'dotenv/config'
 // dev server may push the schema; concurrent pushes can block on an interactive prompt.
 process.env.PAYLOAD_DB_PUSH = 'false'
 
-const PORT = Number(process.env.E2E_PORT ?? 43127)
+const PORT = Number(process.env.E2E_PORT ?? 3000)
 const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({

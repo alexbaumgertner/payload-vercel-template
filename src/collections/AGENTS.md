@@ -1,8 +1,6 @@
----
-description: Conventions for Payload collections, fields, access control and hooks
-globs: src/collections/**/*.ts,src/access/**/*.ts,src/payload.config.ts
-alwaysApply: false
----
+# Payload collections
+
+Applies to `src/collections/`, `src/access/` and `src/payload.config.ts`.
 
 - One collection per file, exported as a named `CollectionConfig` constant; register it in `src/payload.config.ts`.
 - Always set explicit `access` for create/read/update/delete. Reuse functions from `src/access/`.

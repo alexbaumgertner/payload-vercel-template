@@ -1,27 +1,6 @@
 {
   "permissions": {
     "allow": [],
-    "deny": [
-      "Read(.env)",
-      "Read(.env.*)",
-      "Mcp(neon:create_*)",
-      "Mcp(neon:update_*)",
-      "Mcp(neon:delete_*)",
-      "Mcp(neon:reset_*)",
-      "Mcp(neon:set_*)",
-      "Mcp(neon:restore_*)",
-      "Mcp(neon:complete_*)",
-      "Mcp(neon:prepare_*)",
-      "Mcp(neon:get_connection_string)",
-      "Mcp(vercel:deploy_*)",
-      "Mcp(vercel:create_*)",
-      "Mcp(vercel:update_*)",
-      "Mcp(vercel:edit_*)",
-      "Mcp(vercel:delete_*)",
-      "Mcp(vercel:buy_*)",
-      "Mcp(vercel:request_*)",
-      "Mcp(vercel:get_project_env)",
-      "Mcp(vercel:filter_project_envs)"
-    ]
+    "deny": []
   }
 }

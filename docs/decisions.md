@@ -2,6 +2,20 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — Agent rules as nested AGENTS.md; Node 24 and Postgres 18 everywhere
+
+**Rules.** Cursor-only `.cursor/rules/*.mdc` became nested `AGENTS.md` files (`src/collections`, `src/features`,
+`src/components`, `src/app/(frontend)`, `tests`), which Cursor and GitHub Copilot read natively. Claude Code reads
+nested `CLAUDE.md`, so each folder has a one-line `CLAUDE.md` importing its `AGENTS.md`. The root `AGENTS.md` lists
+them, because nested-file loading is unreliable in some clients. `.mcp.json` is the only MCP config; Cursor reading it is unverified — if its MCP list is
+empty, symlink `.cursor/mcp.json` → `../.mcp.json`. Bugbot rules were dropped; the `reviewer` subagent covers review.
+
+**Versions.** Node `24.x` (Vercel's newest and default runtime; Node 20 is deprecated there on 2026-10-01) is pinned in
+`.nvmrc` and `engines`, so CI, local dev and Vercel run the same major. Postgres 18 (GA on Neon and its default for
+new projects since June 2026) in CI and `docker-compose.yml`. Existing Neon projects keep the major they were created
+with — check it before relying on 18-only features.
+Revisit when Vercel adds the next Node LTS.
+
 ## 2026-10-01 — Backups: rely on Neon instant restore, document the Blob gap, drill quarterly
 
 **Context.** The template had no restore procedure. Neon keeps a plan-dependent history window; Vercel Blob has no
@@ -208,7 +222,7 @@ on production; nothing equivalent on Vercel). (c) Read-only where available **pl
 
 **Decision: (c), layered.**
 
-1. `.cursor/mcp.json` and `.mcp.json` use `https://mcp.neon.tech/mcp?readonly=true`: Neon removes write tools and
+1. `.mcp.json` uses `https://mcp.neon.tech/mcp?readonly=true`: Neon removes write tools and
    connection strings server-side, regardless of our hooks.
 2. `scripts/agent-hooks/policy.mjs` (+ `guard-mcp.mjs`) runs before every MCP call — Cursor `beforeMCPExecution`
    (`failClosed: true`), Claude Code `PreToolUse` matcher `mcp__.*`. It is an **allow-list**: Neon/Vercel metadata and

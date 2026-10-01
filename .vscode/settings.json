@@ -37,5 +37,16 @@
     "editor.codeActionsOnSave": {
       "source.fixAll.eslint": "explicit"
     }
-  }
+  },
+  // GitHub Copilot: also read the per-folder AGENTS.md files.
+  "chat.useNestedAgentsMdFiles": true,
+  "cSpell.words": [
+    "Bugbot",
+    "devsafe",
+    "importmap",
+    "Passwordless",
+    "payloadcms",
+    "pgdata",
+    "waitlist"
+  ]
 }

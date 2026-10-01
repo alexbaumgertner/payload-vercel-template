@@ -1,8 +1,4 @@
----
-description: Server Actions, services and Zod validation in src/features
-globs: src/features/**/*.ts
-alwaysApply: false
----
+# Feature folders: Server Actions, services, Zod
 
 Feature folder shape:
 
@@ -14,3 +10,5 @@ Feature folder shape:
 - `queries.ts` — `import 'server-only'`; reads for Server Components with `overrideAccess: false` and `depth` set explicitly.
 
 Validation: use `z.flattenError` for field errors, `z.prettifyError` for logs. Normalize input (trim, lowercase) in the schema, not in the action.
+
+Exception: `auth/otp.ts`, `session.ts`, `strategy.ts`, `store.ts` stay framework-free (see the Auth section in the root `AGENTS.md`).

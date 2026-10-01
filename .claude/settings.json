@@ -15,27 +15,9 @@
       "Bash(git log:*)"
     ],
     "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
-      "Bash(vercel --prod:*)",
-      "mcp__neon__create_*",
-      "mcp__neon__update_*",
-      "mcp__neon__delete_*",
-      "mcp__neon__reset_*",
-      "mcp__neon__set_*",
-      "mcp__neon__restore_*",
-      "mcp__neon__complete_*",
-      "mcp__neon__prepare_*",
-      "mcp__neon__get_connection_string",
-      "mcp__vercel__deploy_*",
-      "mcp__vercel__create_*",
-      "mcp__vercel__update_*",
-      "mcp__vercel__edit_*",
-      "mcp__vercel__delete_*",
-      "mcp__vercel__buy_*",
-      "mcp__vercel__request_*",
-      "mcp__vercel__get_project_env",
-      "mcp__vercel__filter_project_envs"
+      // "Read(./.env)",
+      // "Read(./.env.*)",
+      // "Bash(vercel --prod:*)"
     ]
   },
   "hooks": {

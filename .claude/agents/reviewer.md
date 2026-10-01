@@ -17,7 +17,7 @@ Check, in priority order:
    destructive migration SQL (drop column instead of rename); missing indexes on filtered fields.
 3. **Correctness** — unhandled error paths in Server Actions, missing empty/loading/error UI states,
    `revalidatePath` without the `disableRevalidate` guard, time-zone bugs.
-4. **Conventions** — `AGENTS.md` and `.cursor/rules/*.mdc` (CSS Modules only, feature folder shape, no new deps).
+4. **Conventions** — `AGENTS.md` and the nested `AGENTS.md` next to the changed files (CSS Modules only, feature folder shape, no new deps).
 5. **Tests** — changed behavior without a unit/int/e2e test.
 
 Output: a list of findings as `path:line — severity (blocker|should-fix|nit) — problem — suggested fix`.

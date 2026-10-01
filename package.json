@@ -7,15 +7,15 @@
   "type": "module",
   "packageManager": "pnpm@10.33.3",
   "engines": {
-    "node": ">=22.12.0",
+    "node": "24.x",
     "pnpm": ">=10"
   },
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --port 43127",
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev --port 3000",
     "devsafe": "rm -rf .next && pnpm dev",
     "build": "cross-env NODE_OPTIONS=\"--no-deprecation --max-old-space-size=8000\" next build",
     "build:vercel": "pnpm payload migrate && pnpm build",
-    "start": "cross-env NODE_OPTIONS=--no-deprecation next start --port 43127",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start --port 3000",
     "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
     "generate:types": "pnpm payload generate:types",
     "generate:importmap": "pnpm payload generate:importmap",

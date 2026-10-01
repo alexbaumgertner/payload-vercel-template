@@ -19,7 +19,7 @@ jobs:
 
     services:
       postgres:
-        image: postgres:15
+        image: postgres:18
         env:
           POSTGRES_USER: app
           POSTGRES_PASSWORD: app
@@ -37,7 +37,7 @@ jobs:
       DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app
       TEST_DATABASE_URL: postgresql://app:app@127.0.0.1:5432/app_test
       PAYLOAD_SECRET: ci-only-secret-not-used-anywhere-else
-      NEXT_PUBLIC_SITE_URL: http://localhost:43127
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
       NEXT_TELEMETRY_DISABLED: 1
 
     steps:

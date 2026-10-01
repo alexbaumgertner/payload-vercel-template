@@ -1,8 +1,6 @@
----
-description: React components and CSS Modules styling
-globs: src/components/**/*,src/app/(frontend)/**/*,messages/**/*
-alwaysApply: false
----
+# UI: React components and CSS Modules
+
+Applies to `src/components/`, `src/app/(frontend)/` and `messages/`.
 
 - Server Components by default. Add `'use client'` only for state, effects or event handlers, and keep client components leaf-sized.
 - Component = folder `src/components/Name/` with `Name.tsx` + `Name.module.css`; named export.

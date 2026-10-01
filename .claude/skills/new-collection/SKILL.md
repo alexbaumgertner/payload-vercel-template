@@ -6,7 +6,7 @@ disable-model-invocation: true
 
 # /new-collection <slug> <short description of fields>
 
-1. Create `src/collections/<PascalName>.ts` following `.cursor/rules/payload-collections.mdc`
+1. Create `src/collections/<PascalName>.ts` following `src/collections/AGENTS.md`
    (explicit access for all operations, `useAsTitle`, `defaultColumns`, indexes on filter/sort fields).
 2. Register it in `src/payload.config.ts` `collections` array.
 3. `pnpm generate:types`.
