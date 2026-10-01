@@ -70,6 +70,10 @@ e2e (`tests/e2e/security.e2e.spec.ts`) asserts the headers and fails on any `sec
 public pages, the login page and the signed-in admin with the rich-text editor — so the report-only policy is already
 known to be clean for the template.
 
+Dev mode needs `'unsafe-eval'`, so the dev-server e2e can't see eval in production code. A production build was
+checked by hand and showed Zod 4's `new Function('')` capability probe; `instrumentation-client.ts` sets
+`z.config({ jitless: true })`, and an e2e test spies on the `Function` constructor to keep it that way.
+
 **Consequences.** XSS is not yet mitigated by CSP. To enforce: rename the header to `Content-Security-Policy` once the
 product's own third parties (analytics, Sentry, embeds) are added to the policy and the e2e check passes; consider
 nonces to drop `'unsafe-inline'` from `script-src`. Changes to `security-headers.ts` need a dev-server restart

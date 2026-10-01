@@ -44,6 +44,34 @@ for (const path of ['/', '/changelog', '/admin/login']) {
   })
 }
 
+// Dev mode allows 'unsafe-eval' (React needs it), so CSP can't flag string-to-code calls here.
+// Spy on the Function constructor instead; production CSP has no 'unsafe-eval'.
+test('the public site never compiles code from strings', async ({ page }) => {
+  await page.addInitScript(() => {
+    const calls: string[] = []
+    ;(window as unknown as { __fnCalls: string[] }).__fnCalls = calls
+    const Original = window.Function
+    const record = (args: unknown[]) => calls.push(String(args.at(-1) ?? '').slice(0, 80))
+    window.Function = new Proxy(Original, {
+      apply: (target, self, args) => (record(args), Reflect.apply(target, self, args)),
+      construct: (target, args) => (record(args), Reflect.construct(target, args)),
+    })
+  })
+
+  const calls = () => page.evaluate(() => (window as unknown as { __fnCalls: string[] }).__fnCalls)
+
+  await page.goto('/')
+  await page.waitForLoadState('networkidle')
+  await page.getByPlaceholder('you@company.com').fill('not-an-email')
+  await page.getByRole('button', { name: 'Join the waitlist' }).click()
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible()
+  expect(await calls(), '/').toEqual([])
+
+  await page.goto('/changelog')
+  await page.waitForLoadState('networkidle')
+  expect(await calls(), '/changelog').toEqual([])
+})
+
 test('the signed-in admin and rich-text editor have no CSP violations', async ({
   page,
 }, testInfo) => {
