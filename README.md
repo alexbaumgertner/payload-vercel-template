@@ -106,5 +106,5 @@ The same files drive Cursor and Claude Code:
 The shell guard (`scripts/agent-hooks/guard-shell.mjs`) blocks force pushes, destructive SQL, `migrate:fresh/reset`, connections to `*.neon.tech` and production Vercel commands.
 If you enable "third-party configs" in Cursor, it also loads `.claude/settings.json`; the scripts are idempotent and the typecheck hook skips its duplicate run.
 
-Daily loop: **Plan** (Shift+Tab) → approve → **Agent** implements → hooks format and typecheck → browser/e2e check → `/reviewer` → `/ship`.
+Daily loop: `/feature <idea>` → agent writes `docs/stories/NNN-*.md` → you approve → failing tests per acceptance criterion → implementation → hooks format and typecheck → browser check (Chrome DevTools MCP) → `/reviewer` → `/ship`.
 Fill in `docs/product.md` — agents build better features when they know who they're for.

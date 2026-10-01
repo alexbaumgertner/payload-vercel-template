@@ -12,3 +12,5 @@ What every product built from this template gets out of the box. Update this tab
 | Analytics          | todo   | None                                                                                     |
 | CI                 | done   | GitHub Actions: check, int (Postgres 15), browser, e2e; no secrets; artifacts on failure |
 | Dependency updates | done   | Dependabot weekly; Payload / React / Next / dev-tools grouped; majors as separate PRs    |
+
+Features are specified in `docs/stories/` — each acceptance criterion maps to a named test.
