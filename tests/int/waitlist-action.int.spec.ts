@@ -11,6 +11,14 @@ vi.mock('@/features/waitlist/service', async (importOriginal) => {
   return { ...original, joinWaitlist: vi.fn(original.joinWaitlist) }
 })
 
+const sentry = vi.hoisted(() => ({
+  captureException: vi.fn(),
+  withServerActionInstrumentation: vi.fn(
+    (_name: string, _options: object, callback: () => unknown) => callback(),
+  ),
+}))
+vi.mock('@sentry/nextjs', () => sentry)
+
 let payload: Payload
 
 const submit = (fields: Record<string, string>) => {
@@ -26,10 +34,13 @@ describe('joinWaitlistAction', () => {
   })
 
   beforeEach(async () => {
+    vi.stubEnv('SENTRY_DSN', '')
+    vi.clearAllMocks()
     await payload.delete({ collection: 'waitlist-signups', where: { id: { exists: true } } })
   })
 
   afterAll(async () => {
+    vi.unstubAllEnvs()
     await payload.destroy()
   })
 
@@ -82,5 +93,32 @@ describe('joinWaitlistAction', () => {
     })
     expect(log).toHaveBeenCalledWith('[waitlist] failed to save signup', expect.any(Error))
     log.mockRestore()
+  })
+
+  it('never touches Sentry when SENTRY_DSN is unset, even on failure', async () => {
+    vi.mocked(joinWaitlist).mockRejectedValueOnce(new Error('connection refused'))
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {})
+
+    await submit({ email: 'down@example.com' })
+
+    expect(sentry.withServerActionInstrumentation).not.toHaveBeenCalled()
+    expect(sentry.captureException).not.toHaveBeenCalled()
+  })
+
+  it('reports a database failure to Sentry without the form data when a DSN is set', async () => {
+    vi.stubEnv('SENTRY_DSN', 'https://public@o1.ingest.sentry.io/1')
+    const failure = new Error('connection refused')
+    vi.mocked(joinWaitlist).mockRejectedValueOnce(failure)
+    vi.spyOn(console, 'error').mockImplementationOnce(() => {})
+
+    const state = await submit({ email: 'down@example.com' })
+
+    expect(state.status).toBe('error')
+    expect(sentry.withServerActionInstrumentation).toHaveBeenCalledWith(
+      'joinWaitlistAction',
+      { recordResponse: false },
+      expect.any(Function),
+    )
+    expect(sentry.captureException).toHaveBeenCalledWith(failure, { tags: { area: 'waitlist' } })
   })
 })

@@ -2,6 +2,50 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — Sentry for errors only, off unless `SENTRY_DSN` is set
+
+**Context.** Errors were only visible in Vercel logs, and caught errors (waitlist DB failure, mail provider failure)
+only reached `console.error`. The template must work for products that don't want a monitoring vendor.
+
+**Compatibility.** `@sentry/nextjs@11.2.0` declares `next: ^14 || ^15 || ^16`; verified with Next 16.3.8 /
+React 19.3 / Turbopack: dev, `next build` with a DSN, and a production run. Pinned exactly, like the rest of the stack.
+
+**Options.** (a) Sentry wizard defaults (always-on SDK, tracing, replay). (b) Errors only, gated by the DSN, privacy
+settings locked down. (c) Vercel logs only.
+
+**Decision.** (b).
+
+- One variable, `SENTRY_DSN`. Unset ⇒ `next.config.ts` skips `withSentryConfig` (no build plugin, no tunnel route, no
+  source maps), `instrumentation.ts` never imports the SDK, and the client only imports it when the build-time inlined
+  `NEXT_PUBLIC_SENTRY_DSN` is non-empty. e2e (`monitoring.e2e.spec.ts`) asserts no SDK global, no Sentry requests and no
+  `/monitoring` route.
+- Coverage: `onRequestError` (uncaught errors in Server Components, Route Handlers, Server Actions), `monitorAction()`
+  around every Server Action, `captureServerError()` for errors we catch and turn into friendly messages, and the
+  `error.tsx` / `global-error.tsx` boundaries on the client.
+- Privacy (`src/lib/monitoring/options.ts`): `dataCollection` disables user info, cookies, request/response bodies,
+  query strings, DB query data and stack-frame locals; `beforeSend` keeps only `user.id`, a header allow-list and the
+  URL path, redacts email addresses anywhere in the event, and drops console breadcrumbs (the dev mail fallback prints
+  login codes). Server Actions are wrapped with `recordResponse: false` and no `formData`. Structured logs are dropped.
+- No tracing, no Session Replay — both add cost and personal data; opt in per product.
+- Events go through the same-origin `/monitoring` tunnel, so CSP `connect-src 'self'` needs no Sentry host and ad
+  blockers don't drop errors. Cost: one extra function invocation per event.
+
+**Release and source maps on Vercel.**
+
+1. Create a Sentry project (platform: Next.js), copy the DSN into the Vercel project env as `SENTRY_DSN`
+   (Production + Preview; leave Development empty so local dev stays quiet).
+2. Create an organization auth token (Settings → Developer Settings → Organization Tokens) and add `SENTRY_AUTH_TOKEN`,
+   `SENTRY_ORG`, `SENTRY_PROJECT` to the Vercel env. They are only read during `next build`.
+3. Releases: the SDK uses `SENTRY_RELEASE` or Vercel's `VERCEL_GIT_COMMIT_SHA` (server) and the build plugin injects
+   the same release into the client bundle; environment = `SENTRY_ENVIRONMENT` or `VERCEL_ENV`.
+4. Source maps are uploaded during the build and then deleted from the output, so they are never publicly served. Without
+   the auth token the build skips the upload and stack traces stay minified.
+5. Alternatively install the Sentry integration from the Vercel Marketplace, which provisions the DSN and token.
+
+**Consequences.** Third-party failures are visible without reading logs. The scrubbing can't know every place a product
+puts personal data — new features that throw errors containing user input should keep it out of error messages.
+Revisit if: we need performance tracing, or move to another vendor (swap `src/lib/monitoring/*` only).
+
 ## 2026-10-01 — Security headers: CSP report-only first, everything else enforced
 
 **Context.** The app shipped with Next.js defaults only. A strict CSP can silently break the Payload admin (inline

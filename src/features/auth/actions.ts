@@ -2,6 +2,7 @@
 
 import { cookies, headers } from 'next/headers'
 
+import { captureServerError, monitorAction } from '@/lib/monitoring/server'
 import { getPayloadClient } from '@/lib/payload'
 
 import { loginCodeSender } from './email'
@@ -13,9 +14,17 @@ import { payloadOtpStore } from './store'
 
 async function otpDeps(): Promise<OtpDeps> {
   const payload = await getPayloadClient()
+  const send = loginCodeSender(payload)
   return {
     store: payloadOtpStore(payload),
-    sendCode: loginCodeSender(payload),
+    sendCode: async (to, code) => {
+      try {
+        await send(to, code)
+      } catch (error) {
+        await captureServerError(error, 'auth-email')
+        throw error
+      }
+    },
     secret: payload.secret,
   }
 }
@@ -26,6 +35,10 @@ async function clientIp(): Promise<string> {
 }
 
 export async function loginAction(prev: LoginState, formData: FormData): Promise<LoginState> {
+  return monitorAction('loginAction', () => handleLogin(prev, formData))
+}
+
+async function handleLogin(prev: LoginState, formData: FormData): Promise<LoginState> {
   const intent = formData.get('intent')
 
   if (intent === 'restart') return { step: 'email', email: prev.step === 'code' ? prev.email : '' }
@@ -57,5 +70,7 @@ export async function loginAction(prev: LoginState, formData: FormData): Promise
 }
 
 export async function logoutAction(): Promise<void> {
-  ;(await cookies()).set(SESSION_COOKIE, '', sessionCookieOptions(0))
+  return monitorAction('logoutAction', async () => {
+    ;(await cookies()).set(SESSION_COOKIE, '', sessionCookieOptions(0))
+  })
 }

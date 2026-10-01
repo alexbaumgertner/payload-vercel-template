@@ -13,6 +13,13 @@ const serverEnvSchema = z.object({
     .enum(['true', 'false'])
     .default('true')
     .transform((value) => value === 'true'),
+  // Error monitoring is off (no SDK loaded) unless SENTRY_DSN is set. See src/lib/monitoring.
+  SENTRY_DSN: z.url().optional(),
+  SENTRY_ENVIRONMENT: z.string().min(1).optional(),
+  // Build-time only, for source-map upload from the Vercel build.
+  SENTRY_ORG: z.string().min(1).optional(),
+  SENTRY_PROJECT: z.string().min(1).optional(),
+  SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
 })
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>

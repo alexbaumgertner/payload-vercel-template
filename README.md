@@ -82,7 +82,10 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
 3. Add **Vercel Blob** storage (gives `BLOB_READ_WRITE_TOKEN`) so media uploads persist.
 4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL`.
 5. Add **Resend** (Vercel Marketplace or resend.com): set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` on a verified domain. In production, login fails loudly without them instead of pretending the code was sent.
-6. Create the first user against the production database once, from your machine:
+6. Optional — **Sentry**: set `SENTRY_DSN` to turn on error monitoring (server, client, Server Actions). Add
+   `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` for readable stack traces. Without `SENTRY_DSN` nothing
+   Sentry-related is built or loaded. Details: `docs/decisions.md`.
+7. Create the first user against the production database once, from your machine:
    `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.
