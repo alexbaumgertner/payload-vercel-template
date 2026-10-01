@@ -1,0 +1,49 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 10
+    commit-message:
+      prefix: chore
+      include: scope
+    # Groups only take minor/patch updates, so majors of next, react, typescript and
+    # payload (and everything else) arrive as separate, ungrouped PRs.
+    groups:
+      payload:
+        patterns:
+          - payload
+          - '@payloadcms/*'
+        update-types: [minor, patch]
+      react:
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+        update-types: [minor, patch]
+      next:
+        patterns:
+          - next
+          - eslint-config-next
+        update-types: [minor, patch]
+      dev-tools:
+        dependency-type: development
+        exclude-patterns:
+          - typescript
+          - '@types/react'
+          - '@types/react-dom'
+          - eslint-config-next
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+    groups:
+      actions:
+        patterns: ['*']
