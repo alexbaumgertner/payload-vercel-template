@@ -1,0 +1,88 @@
+{
+  "Metadata": {
+    "siteName": "Indie Starter",
+    "description": "A production-ready Next.js 16 + Payload 3 starter on Postgres, wired for AI-assisted development with Cursor and Claude Code."
+  },
+  "Header": {
+    "home": "Indie Starter home",
+    "nav": "Main",
+    "features": "Features",
+    "changelog": "Changelog",
+    "admin": "Admin"
+  },
+  "LocaleSwitcher": {
+    "label": "Language",
+    "en": "English",
+    "ru": "Русский"
+  },
+  "Footer": {
+    "stack": "Next.js 16 · Payload 3 · Postgres · Vercel"
+  },
+  "Home": {
+    "eyebrow": "Next.js 16 · Payload 3 · Neon · Vercel",
+    "title": "Ship your SaaS this weekend, not next quarter.",
+    "note": "Early access updates only. No spam, unsubscribe anytime.",
+    "featuresTitle": "Everything a solo founder needs on day one",
+    "features": {
+      "admin": {
+        "title": "Content & admin in one app",
+        "body": "Payload 3 runs inside Next.js: collections, auth, uploads and a full admin panel at /admin — no second service to deploy."
+      },
+      "postgres": {
+        "title": "Postgres that scales to zero",
+        "body": "Neon in production, plain Postgres locally. Schema changes go through versioned Payload migrations, applied on every Vercel deploy."
+      },
+      "types": {
+        "title": "Type-safe end to end",
+        "body": "Generated Payload types, Zod at every boundary, Server Actions instead of hand-written API routes."
+      },
+      "tests": {
+        "title": "Tests the agent can run",
+        "body": "Vitest for logic and the Payload Local API, Playwright for real user flows. One command tells the agent whether it is done."
+      },
+      "ai": {
+        "title": "AI workflow built in",
+        "body": "AGENTS.md, scoped Cursor rules, skills, subagents and hooks — shared by Cursor and Claude Code from the same files."
+      },
+      "css": {
+        "title": "Plain CSS Modules",
+        "body": "Design tokens as CSS variables, dark mode via prefers-color-scheme, zero runtime styling cost."
+      }
+    },
+    "latestTitle": "Latest releases",
+    "fullChangelog": "Full changelog →"
+  },
+  "Waitlist": {
+    "emailLabel": "Email address",
+    "placeholder": "you@company.com",
+    "submit": "Join the waitlist",
+    "pending": "Joining…",
+    "success": "You're on the list. We'll email you when there's something worth seeing.",
+    "errors": {
+      "invalid_email": "Enter a valid email address.",
+      "invalid_request": "Something about this request looks off. Reload the page and try again.",
+      "server": "Something went wrong on our side. Please try again."
+    }
+  },
+  "Changelog": {
+    "title": "Changelog",
+    "description": "New features, improvements and fixes.",
+    "lead": "New features, improvements and fixes — newest first.",
+    "emptyTitle": "No releases yet",
+    "emptyBody": "Publish your first entry from the <admin>admin panel</admin> or run <code>pnpm seed</code>.",
+    "tags": {
+      "feature": "feature",
+      "improvement": "improvement",
+      "fix": "fix"
+    }
+  },
+  "Status": {
+    "notFoundTitle": "Page not found",
+    "notFoundBody": "The page you're looking for doesn't exist or has moved.",
+    "backHome": "Back to home",
+    "errorTitle": "Something broke on our side",
+    "errorBody": "The page failed to load. It's been logged — try again in a moment.",
+    "retry": "Try again",
+    "loading": "Loading…"
+  }
+}

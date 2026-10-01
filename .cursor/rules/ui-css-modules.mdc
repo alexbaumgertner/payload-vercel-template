@@ -1,6 +1,6 @@
 ---
 description: React components and CSS Modules styling
-globs: src/components/**/*,src/app/(frontend)/**/*
+globs: src/components/**/*,src/app/(frontend)/**/*,messages/**/*
 alwaysApply: false
 ---
 
@@ -12,3 +12,6 @@ alwaysApply: false
 - Mobile first: must work at 360px; use `clamp()` for type scale and `min()` in grid tracks.
 - Accessibility: semantic elements, labelled inputs, `aria-live` for async feedback, visible `:focus-visible`.
 - Forms: `useActionState` + Server Action; disable controls while pending.
+- Copy: no inline strings. Add keys to `messages/en.json` and `messages/ru.json`; read them with
+  `useTranslations` (client) or `getTranslations({ locale, namespace })` (server). Internal links use `Link` from `@/i18n/navigation`;
+  `/admin` stays a plain `<a>`. Check the Russian layout at 360px — it runs ~20% longer.

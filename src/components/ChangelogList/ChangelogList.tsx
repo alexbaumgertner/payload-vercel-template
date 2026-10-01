@@ -1,4 +1,5 @@
 import { RichText } from '@payloadcms/richtext-lexical/react'
+import { useLocale, useTranslations } from 'next-intl'
 
 import { formatDate } from '@/lib/format'
 import type { Changelog } from '@/payload-types'
@@ -11,13 +12,18 @@ type ChangelogListProps = {
 }
 
 export function ChangelogList({ entries, showBody = false }: ChangelogListProps) {
+  const t = useTranslations('Changelog')
+  const locale = useLocale()
+
   if (entries.length === 0) {
     return (
       <div className={styles.empty}>
-        <p className={styles.emptyTitle}>No releases yet</p>
+        <p className={styles.emptyTitle}>{t('emptyTitle')}</p>
         <p>
-          Publish your first entry from the <a href="/admin/collections/changelog">admin panel</a>{' '}
-          or run <code>pnpm seed</code>.
+          {t.rich('emptyBody', {
+            admin: (chunks) => <a href="/admin/collections/changelog">{chunks}</a>,
+            code: (chunks) => <code>{chunks}</code>,
+          })}
         </p>
       </div>
     )
@@ -28,9 +34,9 @@ export function ChangelogList({ entries, showBody = false }: ChangelogListProps)
       {entries.map((entry) => (
         <li key={entry.id} className={styles.item}>
           <div className={styles.meta}>
-            <time dateTime={entry.publishedAt}>{formatDate(entry.publishedAt)}</time>
+            <time dateTime={entry.publishedAt}>{formatDate(entry.publishedAt, locale)}</time>
             <span className={styles.tag} data-tag={entry.tag}>
-              {entry.tag}
+              {t(`tags.${entry.tag}`)}
             </span>
           </div>
           <article className={styles.content}>

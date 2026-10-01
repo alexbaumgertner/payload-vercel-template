@@ -1,6 +1,7 @@
 import { withPayload } from '@payloadcms/next/withPayload'
 import { withSentryConfig } from '@sentry/nextjs/config'
 import type { NextConfig } from 'next'
+import createNextIntlPlugin from 'next-intl/plugin'
 import path from 'path'
 import { fileURLToPath } from 'url'
 
@@ -50,7 +51,9 @@ const nextConfig: NextConfig = {
   },
 }
 
-const config = withPayload(nextConfig, { devBundleServerPackages: false })
+const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts')
+
+const config = withPayload(withNextIntl(nextConfig), { devBundleServerPackages: false })
 
 // Without a DSN the build is untouched: no Sentry plugin, no tunnel route, no source-map upload.
 export default sentryDsn

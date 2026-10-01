@@ -1,8 +1,21 @@
-import { render, screen } from '@testing-library/react'
+import { render as rtlRender, screen, within } from '@testing-library/react'
+import { NextIntlClientProvider } from 'next-intl'
+import type { ReactElement } from 'react'
 import { describe, expect, it } from 'vitest'
 
 import { ChangelogList } from '@/components/ChangelogList/ChangelogList'
+import type { Locale } from '@/i18n/routing'
 import type { Changelog } from '@/payload-types'
+
+import en from '../../messages/en.json'
+import ru from '../../messages/ru.json'
+
+const render = (ui: ReactElement, locale: Locale = 'en') =>
+  rtlRender(
+    <NextIntlClientProvider locale={locale} messages={locale === 'en' ? en : ru}>
+      {ui}
+    </NextIntlClientProvider>,
+  )
 
 const entry = (overrides: Partial<Changelog>): Changelog => ({
   id: 1,
@@ -40,5 +53,15 @@ describe('ChangelogList', () => {
     expect(screen.getAllByRole('listitem')[0]?.querySelector('time')?.dateTime).toBe(
       '2026-09-20T00:00:00.000Z',
     )
+  })
+
+  it('translates the empty state, tags and dates in Russian', () => {
+    const empty = within(render(<ChangelogList entries={[]} />, 'ru').container)
+    expect(empty.getByText('Релизов пока нет')).toBeTruthy()
+    expect(empty.getByRole('link', { name: 'админке' })).toBeTruthy()
+
+    const list = within(render(<ChangelogList entries={[entry({ tag: 'fix' })]} />, 'ru').container)
+    expect(list.getByText('исправление')).toBeTruthy()
+    expect(list.getByRole('listitem').querySelector('time')?.textContent).toMatch(/сент/)
   })
 })

@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { useActionState, useId } from 'react'
 
 import { joinWaitlistAction } from '@/features/waitlist/actions'
@@ -8,6 +9,7 @@ import { initialWaitlistState } from '@/features/waitlist/schema'
 import styles from './WaitlistForm.module.css'
 
 export function WaitlistForm({ source }: { source: string }) {
+  const t = useTranslations('Waitlist')
   const [state, formAction, isPending] = useActionState(joinWaitlistAction, initialWaitlistState)
   const emailId = useId()
   const errorId = useId()
@@ -15,13 +17,12 @@ export function WaitlistForm({ source }: { source: string }) {
   if (state.status === 'success') {
     return (
       <p className={styles.success} role="status">
-        {state.message}
+        {t('success')}
       </p>
     )
   }
 
-  const emailError =
-    state.status === 'error' ? (state.fieldErrors?.email?.[0] ?? state.message) : null
+  const error = state.status === 'error' ? state.error : null
 
   return (
     <form action={formAction} className={styles.form} noValidate>
@@ -34,7 +35,7 @@ export function WaitlistForm({ source }: { source: string }) {
       </div>
 
       <label htmlFor={emailId} className="visually-hidden">
-        Email address
+        {t('emailLabel')}
       </label>
       <div className={styles.row}>
         <input
@@ -44,19 +45,19 @@ export function WaitlistForm({ source }: { source: string }) {
           required
           autoComplete="email"
           inputMode="email"
-          placeholder="you@company.com"
+          placeholder={t('placeholder')}
           className={styles.input}
-          aria-invalid={Boolean(emailError)}
-          aria-describedby={emailError ? errorId : undefined}
+          aria-invalid={error === 'invalid_email'}
+          aria-describedby={error ? errorId : undefined}
           disabled={isPending}
         />
         <button type="submit" className={styles.button} disabled={isPending}>
-          {isPending ? 'Joining…' : 'Join the waitlist'}
+          {isPending ? t('pending') : t('submit')}
         </button>
       </div>
 
       <p id={errorId} className={styles.error} role="alert">
-        {emailError}
+        {error ? t(`errors.${error}`) : null}
       </p>
     </form>
   )

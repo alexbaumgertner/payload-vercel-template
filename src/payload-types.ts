@@ -92,10 +92,10 @@ export interface Config {
   db: {
     defaultIDType: number;
   };
-  fallbackLocale: null;
+  fallbackLocale: ('false' | 'none' | 'null') | false | null | ('en' | 'ru') | ('en' | 'ru')[];
   globals: {};
   globalsSelect: {};
-  locale: null;
+  locale: 'en' | 'ru';
   widgets: {
     collections: CollectionsWidget;
   };

@@ -1,10 +1,16 @@
-const dateFormatter = new Intl.DateTimeFormat('en', {
-  year: 'numeric',
-  month: 'short',
-  day: 'numeric',
-  timeZone: 'UTC',
-})
+const formatters = new Map<string, Intl.DateTimeFormat>()
 
-export function formatDate(value: string | Date) {
-  return dateFormatter.format(typeof value === 'string' ? new Date(value) : value)
+/** Release dates in UTC, so every visitor sees the same day, in the visitor's language. */
+export function formatDate(value: string | Date, locale = 'en') {
+  let formatter = formatters.get(locale)
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat(locale, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    })
+    formatters.set(locale, formatter)
+  }
+  return formatter.format(typeof value === 'string' ? new Date(value) : value)
 }

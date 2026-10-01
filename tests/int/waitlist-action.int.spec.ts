@@ -76,10 +76,14 @@ describe('joinWaitlistAction', () => {
   ])('rejects an %s email with a field error and stores nothing', async (_label, email) => {
     const state = await submit({ email })
 
-    expect(state).toMatchObject({
-      status: 'error',
-      fieldErrors: { email: ['Enter a valid email address.'] },
-    })
+    expect(state).toEqual({ status: 'error', error: 'invalid_email' })
+    expect(await signups()).toBe(0)
+  })
+
+  it('refuses a tampered hidden source field without blaming the email', async () => {
+    const state = await submit({ email: 'ok@example.com', source: 'x'.repeat(65) })
+
+    expect(state).toEqual({ status: 'error', error: 'invalid_request' })
     expect(await signups()).toBe(0)
   })
 
@@ -97,10 +101,7 @@ describe('joinWaitlistAction', () => {
 
     const state = await submit({ email: 'down@example.com' })
 
-    expect(state).toEqual({
-      status: 'error',
-      message: 'Something went wrong on our side. Please try again.',
-    })
+    expect(state).toEqual({ status: 'error', error: 'server' })
     expect(log).toHaveBeenCalledWith('[waitlist] failed to save signup', expect.any(Error))
     log.mockRestore()
   })

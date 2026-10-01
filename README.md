@@ -7,6 +7,7 @@ What's inside out of the box:
 - Landing page with a **waitlist** (Server Action + Zod + honeypot, stored in Postgres, private to admins)
 - **Changelog** managed in the Payload admin, with scheduled publishing and on-save revalidation
 - Payload admin at `/admin` (users, media, waitlist, changelog); media goes to Vercel Blob when configured
+- **English + Russian** public site via next-intl: `/` (en) and `/ru`, language switcher, `<html lang>`, hreflang, browser-language detection; changelog entries translated in the admin with English fallback
 - **Passwordless login**: email → 6-digit one-time code (hashed, 10-min TTL, attempt and rate limits, no account enumeration), sent via Resend
 - Unit, integration (real Postgres) and e2e (desktop + mobile) tests
 - `AGENTS.md`, scoped Cursor rules, skills, a reviewer subagent, safety hooks, Bugbot rules, MCP config
@@ -24,6 +25,7 @@ What's inside out of the box:
 | @playwright/test        | 1.63.0        | latest                                                 |
 | eslint                  | 9.39.5        | eslint-config-next plugins don't support ESLint 10 yet |
 | graphql                 | 16.14.2       | Payload peer `^16.8.1`                                 |
+| next-intl               | 4.14.8        | latest; peers `next ^16`, `react ^19`                  |
 
 ## Quick start
 
@@ -92,6 +94,15 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
    `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.
+
+## Languages
+
+UI copy lives in `messages/en.json` and `messages/ru.json` (a unit test fails if their keys drift apart). English is
+the default and has no URL prefix; other locales are served under `/<locale>`. To add a language: add it to
+`src/i18n/locales.ts`, create `messages/<code>.json`, run `pnpm generate:types`, and create a migration — Payload's
+`_locales` enum changes. The admin UI stays English; changelog entries get a locale tab in the editor, and missing
+translations fall back to English. To ship English only, set `locales = ['en']` (the switcher hides itself),
+remove `messages/ru.json` and the Russian tests, and create a migration; translated changelog rows are dropped with the `ru` enum value.
 
 ## AI workflow
 

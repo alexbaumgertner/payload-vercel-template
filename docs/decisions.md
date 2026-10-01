@@ -2,6 +2,51 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — i18n: next-intl for the public site, English unprefixed, Payload localization for content
+
+**Context.** Products from the template launch in English and Russian. The public site needs localized URLs, copy,
+metadata and changelog content; the Payload admin is used by the founder only.
+
+**Compatibility.** `next-intl@4.14.8` peers: `next ^12 || … || ^16`, `react ^16.8 || … || ^19` — fine with
+Next 16.3.8 / React 19.3. Pinned exactly. It reads the locale through `next/root-params` (Next 16), so pages stay
+statically prerendered per locale (`/en`, `/ru`, `/en/changelog`, `/ru/changelog` are SSG in `next build`).
+
+**Options.** URL prefix `always` (`/en/...`) vs `as-needed` (default locale unprefixed) vs domains; message format
+in the action vs error codes; localizing the admin vs not.
+
+**Decision.**
+
+- `localePrefix: 'as-needed'`: existing English URLs (`/`, `/changelog`) keep working and keep their SEO; `/en/*`
+  redirects to the unprefixed URL so there is one canonical URL per page. `/ru/*` for Russian.
+- `src/proxy.ts` negotiates the locale from the `NEXT_LOCALE` cookie (session cookie, `SameSite=Lax`, set when the
+  visitor switches language) and then `Accept-Language`; unsupported languages get English. The matcher skips
+  `/admin`, `/api`, `/monitoring` (Sentry tunnel), `/_next`, `/_vercel` and files with an extension.
+- Every page sets `<html lang>`, a self-referencing canonical and `hreflang` alternates for each locale plus
+  `x-default` → English. `NEXT_PUBLIC_SITE_URL` makes them absolute.
+- Server actions return error **codes** (`invalid_email`, `invalid_request`, `server`); components translate them.
+  Copy lives in `messages/<locale>.json`; a unit test enforces identical keys, no empty strings and matching rich-text
+  tags across locales.
+- Admin stays English and is outside locale routing (`/ru/admin` is a 404). Changelog `title`, `summary` and `body` are
+  Payload `localized` fields with `fallback: true`; date, tag and scheduling are shared. Untranslated entries show in
+  English on `/ru` rather than disappearing.
+- Pages live in `[locale]/(site)/` while `not-found.tsx` sits in `[locale]/`: a `loading.tsx` at the same level as the
+  catch-all `[...rest]` would start streaming and turn unknown pages into HTTP 200 instead of 404.
+- Revalidation hooks call `revalidatePath` on concrete internal paths (`/en`, `/ru/changelog` …). Found in a production
+  build: prerendered pages are tagged with their route groups (`/(frontend)/[locale]/(site)/page`), so
+  `revalidatePath('/[locale]', 'page')` silently matched nothing. Plain paths match the per-page pathname tag.
+
+**Migration.** Localizing existing fields moves them into `changelog_locales`; Payload's generated migration dropped
+the columns without copying. `20261001_144024_localize_changelog` was edited to copy every row into `_locale = 'en'`
+first, and `down` copies English (or any translation) back. Tested on a scratch database: old migrations + seed →
+new `up` (4/4 rows kept) → `down` (English restored, Russian dropped as documented) → `up` again.
+
+**Consequences.** Adding a language = `locales.ts` + a messages file + a migration (Payload's `_locales` enum).
+Locale detection means `/` can redirect a Russian browser to `/ru` — crawlers without `Accept-Language` get English.
+The Russian header needed shorter labels at 320–360px; an e2e test guards it. Admin UI translation (Payload's own
+`i18n`) and per-locale slugs are not done.
+Revisit if: a product needs localized slugs, a third locale with a different script/direction, or translated emails
+(the login email is English only).
+
 ## 2026-10-01 — Product analytics: typed server-side events, off by default, DNT/GPC respected
 
 **Context.** Products built from the template need funnel numbers (waitlist → login) without each one reinventing

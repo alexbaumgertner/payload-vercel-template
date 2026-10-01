@@ -3,6 +3,7 @@ import 'dotenv/config'
 import { getPayload } from 'payload'
 
 import config from '../src/payload.config'
+import type { Changelog } from '../src/payload-types'
 
 type Paragraph = string
 
@@ -31,7 +32,10 @@ function richText(paragraphs: Paragraph[]) {
 
 const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
 
-const entries = [
+type Translation = Pick<Changelog, 'title' | 'summary' | 'body'>
+type SeedEntry = Translation & Pick<Changelog, 'tag' | 'publishedAt'> & { ru?: Translation }
+
+const entries: SeedEntry[] = [
   {
     title: 'Waitlist with spam protection',
     tag: 'feature',
@@ -42,6 +46,15 @@ const entries = [
       'Signups are private: the public REST and GraphQL APIs cannot read them, only admins can.',
     ]),
     publishedAt: daysAgo(1),
+    ru: {
+      title: 'Лист ожидания с защитой от спама',
+      summary:
+        'Собирайте email-адреса для раннего доступа прямо в Postgres — с honeypot и валидацией Zod.',
+      body: richText([
+        'Форма на лендинге отправляется в Server Action, проверяет данные через Zod и сохраняет заявки в коллекцию Payload «Waitlist».',
+        'Заявки приватны: публичные REST и GraphQL API их не отдают, видят только админы.',
+      ]),
+    },
   },
   {
     title: 'Changelog managed from the admin panel',
@@ -52,20 +65,33 @@ const entries = [
       'Entries dated in the future stay hidden until their publish date. Saving an entry revalidates the landing page and this page.',
     ]),
     publishedAt: daysAgo(4),
+    ru: {
+      title: 'Список изменений из админки',
+      summary:
+        'Пишите заметки о релизах в Payload, планируйте дату публикации — и они сами появятся здесь.',
+      body: richText([
+        'Записи с датой в будущем скрыты до дня публикации. Сохранение записи обновляет лендинг и эту страницу.',
+      ]),
+    },
   },
   {
     title: 'Faster cold starts on Vercel',
     tag: 'improvement',
     summary: 'Migrations now run during the build instead of on the first request.',
     publishedAt: daysAgo(9),
+    ru: {
+      title: 'Быстрый холодный старт на Vercel',
+      summary: 'Миграции теперь выполняются во время сборки, а не при первом запросе.',
+    },
   },
   {
     title: 'Correct dates across time zones',
     tag: 'fix',
     summary: 'Release dates are formatted in UTC, so every visitor sees the same day.',
     publishedAt: daysAgo(15),
+    // No Russian translation on purpose: the public site falls back to English.
   },
-] as const
+]
 
 async function seed() {
   const payload = await getPayload({ config })
@@ -81,13 +107,27 @@ async function seed() {
     payload.logger.info(`Created admin ${email} (sign in with an email code)`)
   }
 
-  for (const entry of entries) {
+  for (const { ru, ...entry } of entries) {
     const { totalDocs } = await payload.count({
       collection: 'changelog',
+      locale: 'en',
       where: { title: { equals: entry.title } },
     })
-    if (totalDocs === 0) {
-      await payload.create({ collection: 'changelog', data: { ...entry }, context })
+    if (totalDocs > 0) continue
+    const created = await payload.create({
+      collection: 'changelog',
+      locale: 'en',
+      data: { ...entry },
+      context,
+    })
+    if (ru) {
+      await payload.update({
+        collection: 'changelog',
+        id: created.id,
+        locale: 'ru',
+        data: ru,
+        context,
+      })
     }
   }
 
