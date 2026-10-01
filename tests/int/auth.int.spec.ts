@@ -60,6 +60,32 @@ describe('email-code auth against Postgres', () => {
     ).rejects.toThrow()
   })
 
+  it('hides the user list from anonymous API clients', async () => {
+    await expect(payload.find({ collection: 'users', overrideAccess: false })).rejects.toThrow()
+  })
+
+  it('has no self sign-up: anonymous clients cannot create users', async () => {
+    await expect(
+      payload.create({
+        collection: 'users',
+        data: { email: 'intruder@example.com' },
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow()
+    const where = { email: { equals: 'intruder@example.com' } }
+    expect((await payload.count({ collection: 'users', where })).totalDocs).toBe(0)
+  })
+
+  it('lets a signed-in user read users with access control on', async () => {
+    const { docs } = await payload.find({
+      collection: 'users',
+      where: { email: { equals: USER_EMAIL } },
+    })
+    const user = { ...docs[0]!, collection: 'users' as const }
+    const result = await payload.find({ collection: 'users', overrideAccess: false, user })
+    expect(result.docs.map((d) => d.email)).toContain(USER_EMAIL)
+  })
+
   it('authenticates requests carrying a valid session cookie', async () => {
     const { docs } = await payload.find({
       collection: 'users',

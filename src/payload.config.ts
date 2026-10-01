@@ -48,6 +48,7 @@ export default buildConfig({
       connectionString: env.DATABASE_URL,
     },
     migrationDir: path.resolve(dirname, 'migrations'),
+    push: env.PAYLOAD_DB_PUSH,
   }),
   sharp,
   plugins: [

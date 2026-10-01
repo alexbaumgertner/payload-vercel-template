@@ -117,6 +117,17 @@ describe('requestCode', () => {
     })
   })
 
+  it.each([
+    ['empty', ''],
+    ['whitespace only', '   '],
+    ['longer than 254 characters', `${'a'.repeat(60)}@${'b'.repeat(200)}.com`],
+  ])('rejects an %s email without storing a code', async (_label, email) => {
+    const { deps, rows, sent } = setup()
+    expect(await requestCode(email, '1.1.1.1', deps)).toEqual({ ok: false, error: BAD_EMAIL })
+    expect(rows).toHaveLength(0)
+    expect(sent).toHaveLength(0)
+  })
+
   it('limits codes per email', async () => {
     const { deps, advance } = setup()
     for (let i = 0; i < 3; i += 1) {
@@ -220,5 +231,24 @@ describe('verifyCode', () => {
     await requestCode('admin@example.com', '1.1.1.1', deps)
     expect((await verifyCode('admin@example.com', 'abc', deps)).ok).toBe(false)
     expect(rows[0]?.attempts).toBe(0)
+  })
+
+  it.each(['', '12345', '1000000', '10000a', '100000'.repeat(100)])(
+    'rejects code %j without spending an attempt',
+    async (code) => {
+      const { deps, rows } = setup()
+      await requestCode('admin@example.com', '1.1.1.1', deps)
+      expect(await verifyCode('admin@example.com', code, deps)).toEqual({
+        ok: false,
+        error: BAD_CODE,
+      })
+      expect(rows[0]?.attempts).toBe(0)
+    },
+  )
+
+  it('accepts a code typed with spaces', async () => {
+    const { deps } = setup()
+    await requestCode('admin@example.com', '1.1.1.1', deps)
+    expect((await verifyCode('admin@example.com', ' 100 000 ', deps)).ok).toBe(true)
   })
 })

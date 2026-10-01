@@ -6,19 +6,29 @@ import type { WaitlistInput } from './schema'
 
 export type JoinWaitlistResult = { created: boolean }
 
+async function isListed(payload: Payload, email: string): Promise<boolean> {
+  const { totalDocs } = await payload.count({
+    collection: 'waitlist-signups',
+    where: { email: { equals: email } },
+  })
+  return totalDocs > 0
+}
+
 export async function joinWaitlist(
   payload: Payload,
   { email, source }: Pick<WaitlistInput, 'email' | 'source'>,
 ): Promise<JoinWaitlistResult> {
-  const existing = await payload.count({
-    collection: 'waitlist-signups',
-    where: { email: { equals: email } },
-  })
-  if (existing.totalDocs > 0) return { created: false }
+  if (await isListed(payload, email)) return { created: false }
 
-  await payload.create({
-    collection: 'waitlist-signups',
-    data: { email, source },
-  })
-  return { created: true }
+  try {
+    await payload.create({
+      collection: 'waitlist-signups',
+      data: { email, source },
+    })
+    return { created: true }
+  } catch (error) {
+    // A double submit can pass the check above twice; the unique index lets one insert win.
+    if (await isListed(payload, email)) return { created: false }
+    throw error
+  }
 }

@@ -2,6 +2,51 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — Security headers: CSP report-only first, everything else enforced
+
+**Context.** The app shipped with Next.js defaults only. A strict CSP can silently break the Payload admin (inline
+scripts/styles, Lexical, image previews from Blob), and there is no CSP reporting endpoint yet.
+
+**Options.** (a) Enforce a nonce-based CSP now — needs `proxy.ts` per request and makes every page dynamic. (b) Ship
+the full policy as `Content-Security-Policy-Report-Only` and enforce only what is safe. (c) Skip CSP.
+
+**Decision.** (b). Headers live in `src/lib/security-headers.ts` and are applied to every route in `next.config.ts`:
+
+- `Content-Security-Policy-Report-Only` — the target policy (`'self'` + `'unsafe-inline'` for Next/Payload inline
+  bootstrap, Blob and Gravatar images, no `unsafe-eval`/`ws:` in production).
+- `Content-Security-Policy: frame-ancestors 'self'` + `X-Frame-Options: SAMEORIGIN` — browsers ignore
+  `frame-ancestors` in report-only, so clickjacking protection is enforced separately. Payload's live preview still works
+  (same origin).
+- `Strict-Transport-Security: max-age=63072000; includeSubDomains` — **no `preload`**: preloading is effectively
+  irreversible and must be a per-product choice.
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, a deny-all
+  `Permissions-Policy`, and `poweredByHeader: false`.
+
+e2e (`tests/e2e/security.e2e.spec.ts`) asserts the headers and fails on any `securitypolicyviolation` event on the
+public pages, the login page and the signed-in admin with the rich-text editor — so the report-only policy is already
+known to be clean for the template.
+
+**Consequences.** XSS is not yet mitigated by CSP. To enforce: rename the header to `Content-Security-Policy` once the
+product's own third parties (analytics, Sentry, embeds) are added to the policy and the e2e check passes; consider
+nonces to drop `'unsafe-inline'` from `script-src`. Changes to `security-headers.ts` need a dev-server restart
+(`next.config.ts` imports are not hot-reloaded).
+
+**Found while closing test gaps (same change):**
+
+- **Open redirect after login** — `?redirect=/\evil.example` and `/\t/evil.example` passed the old `startsWith('/')`
+  check and browsers treat them as `//evil.example`. `safeRedirect()` now resolves the value against a probe origin and
+  falls back to `/admin` on any origin change.
+- **Waitlist double submit** — two concurrent submits of one email both passed the "already listed?" check and one hit
+  the unique index, showing the user an error. The service now re-checks after a failed insert and returns the same
+  success.
+- **Accepted risk: concurrent `verifyCode`** — two requests carrying the same correct code at the same instant can both
+  sign in, because consuming the code is a read-then-update, not an atomic conditional update. Impact is low (both
+  sessions belong to the code's owner, who had the code); revisit with `UPDATE … WHERE usedAt IS NULL RETURNING` if
+  codes ever grant more than a session.
+- **`PAYLOAD_DB_PUSH`** — every process that opens a Payload connection runs the dev schema push. Playwright workers
+  (which seed data) raced the dev server and could block on drizzle's interactive prompt, hanging e2e. The env flag
+  (default `true`) lets `playwright.config.ts` disable push in workers while the dev server keeps it.
+
 ## 2026-10-01 — Agents never touch production data through MCP
 
 **Context.** The shell guard (`scripts/agent-hooks/guard-shell.mjs`) only sees terminal commands. The Neon and Vercel MCP

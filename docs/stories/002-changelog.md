@@ -30,12 +30,14 @@ status: done
 
 ## Verification
 
-| #   | Test (file › name)                                                                                                       | Layer |
-| --- | ------------------------------------------------------------------------------------------------------------------------ | ----- |
-| 1   | `tests/e2e/landing.e2e.spec.ts` › changelog page renders (order: gap)                                                    | e2e   |
-| 2   | `tests/int/changelog.int.spec.ts` › hides entries scheduled in the future from anonymous readers                         | int   |
-| 3   | `tests/int/changelog.int.spec.ts` › shows every entry to the Local API with access override (gap: a real signed-in user) | int   |
-| 4   | gap — covered in task "security baseline"                                                                                | unit  |
-| 5   | gap — covered in task "security baseline"                                                                                | int   |
-| 6   | gap — covered in task "security baseline"                                                                                | int   |
-| 7   | manual: edit an entry in `/admin`, reload `/changelog`                                                                   | e2e   |
+| #   | Test (file › name)                                                                                            | Layer |
+| --- | ------------------------------------------------------------------------------------------------------------- | ----- |
+| 1   | `tests/e2e/landing.e2e.spec.ts` › changelog page renders                                                      | e2e   |
+| 1   | `tests/int/changelog.int.spec.ts` › lists published entries newest first on the public page                   | int   |
+| 1   | `tests/unit/changelog-list.unit.spec.tsx` › renders entries in the given order with date and tag              | unit  |
+| 2   | `tests/int/changelog.int.spec.ts` › hides entries scheduled in the future from anonymous readers              | int   |
+| 3   | `tests/int/changelog.int.spec.ts` › shows scheduled entries to a signed-in user with access control on        | int   |
+| 4   | `tests/unit/changelog-list.unit.spec.tsx` › shows an empty state with a way forward when nothing is published | unit  |
+| 5   | `tests/int/changelog.int.spec.ts` › refuses anonymous creates, updates and deletes through the API            | int   |
+| 6   | `tests/int/changelog.int.spec.ts` › rejects a summary longer than 280 characters                              | int   |
+| 7   | manual: edit an entry in `/admin`, reload `/changelog`                                                        | e2e   |

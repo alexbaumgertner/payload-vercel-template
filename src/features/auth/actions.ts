@@ -6,6 +6,7 @@ import { getPayloadClient } from '@/lib/payload'
 
 import { loginCodeSender } from './email'
 import { requestCode, verifyCode, type OtpDeps } from './otp'
+import { safeRedirect } from './redirect'
 import type { LoginState } from './schema'
 import { issueToken, SESSION_COOKIE, sessionCookieOptions } from './session'
 import { payloadOtpStore } from './store'
@@ -22,12 +23,6 @@ async function otpDeps(): Promise<OtpDeps> {
 async function clientIp(): Promise<string> {
   const h = await headers()
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip')?.trim() || 'unknown'
-}
-
-/** Only same-origin paths, so the login form can't be turned into an open redirect. */
-function safeRedirect(value: FormDataEntryValue | null): string {
-  const target = typeof value === 'string' ? value : ''
-  return target.startsWith('/') && !target.startsWith('//') ? target : '/admin'
 }
 
 export async function loginAction(prev: LoginState, formData: FormData): Promise<LoginState> {

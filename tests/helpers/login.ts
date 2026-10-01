@@ -53,5 +53,6 @@ export async function login({ page, email }: { page: Page; email: string }): Pro
   await page.getByLabel('Code').fill(E2E_CODE)
   await page.getByRole('button', { name: 'Sign in' }).click()
   await page.waitForURL(/\/admin$/)
-  await expect(page.locator('span[title="Dashboard"]').first()).toBeVisible()
+  // Full reload into the admin; the first dev-mode compile under parallel load can take >5s.
+  await expect(page.locator('span[title="Dashboard"]').first()).toBeVisible({ timeout: 15_000 })
 }

@@ -18,6 +18,19 @@ describe('waitlistSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it.each([
+    ['empty', ''],
+    ['longer than 254 characters', `${'a'.repeat(60)}@${'b'.repeat(200)}.com`],
+  ])('rejects an %s email', (_label, email) => {
+    expect(waitlistSchema.safeParse({ email }).success).toBe(false)
+  })
+
+  it('rejects a source longer than 64 characters', () => {
+    expect(
+      waitlistSchema.safeParse({ email: 'a@example.com', source: 'x'.repeat(65) }).success,
+    ).toBe(false)
+  })
+
   it('accepts an optional source', () => {
     const result = waitlistSchema.parse({ email: 'a@example.com', source: 'landing-hero' })
     expect(result.source).toBe('landing-hero')

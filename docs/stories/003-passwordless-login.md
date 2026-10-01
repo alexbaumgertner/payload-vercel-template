@@ -24,7 +24,7 @@ status: done
 10. `[edge]` **Given** `POST /api/users/login` with a password **when** called **then** it is refused.
 11. `[edge]` **Given** a `?redirect=` pointing to another origin **when** I sign in **then** I'm sent to `/admin` instead (no open redirect).
 12. `[edge]` **Given** a tampered, expired or foreign-secret session cookie **when** I call the API **then** I'm treated as anonymous.
-13. `[edge]` **Given** an anonymous API client **when** it reads `auth-codes` **then** it is refused.
+13. `[edge]` **Given** an anonymous API client **when** it reads `auth-codes` or `users`, or creates a user **then** it is refused.
 
 ## Out of scope
 
@@ -32,18 +32,19 @@ status: done
 
 ## Verification
 
-| #   | Test (file › name)                                                                                                                                       | Layer    |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| 1–2 | `tests/e2e/auth.e2e.spec.ts` › signs in with a code and logs out                                                                                         | e2e      |
-| 1   | `tests/int/auth.int.spec.ts` › authenticates requests carrying a valid session cookie                                                                    | int      |
-| 3   | `tests/e2e/auth.e2e.spec.ts` › unknown addresses get the same answer as real ones; `otp.unit` › answers the same for unknown addresses but sends nothing | e2e/unit |
-| 4   | `tests/e2e/auth.e2e.spec.ts` › a wrong code is rejected                                                                                                  | e2e      |
-| 5   | `tests/unit/otp.unit.spec.ts` › burns the code after 5 wrong attempts, even if the 6th is right                                                          | unit     |
-| 6   | `tests/unit/otp.unit.spec.ts` › rejects expired codes · only accepts the latest code · signs a user in once with the right code                          | unit     |
-| 7   | `tests/unit/otp.unit.spec.ts` › limits codes per email · limits requests per IP across addresses                                                         | unit     |
-| 8   | `tests/unit/otp.unit.spec.ts` › reports a mail failure instead of pretending the code was sent                                                           | unit     |
-| 9   | `tests/unit/otp.unit.spec.ts` › rejects malformed emails · rejects malformed codes without spending an attempt                                           | unit     |
-| 10  | `tests/e2e/auth.e2e.spec.ts` › password login is disabled on the API                                                                                     | e2e      |
-| 11  | gap — covered in task "security baseline"                                                                                                                | unit     |
-| 12  | `tests/unit/session.unit.spec.ts` › rejects a tampered user id or signature · rejects tokens signed with another secret · expires                        | unit     |
-| 13  | `tests/int/auth.int.spec.ts` › keeps login codes closed to the public API                                                                                | int      |
+| #   | Test (file › name)                                                                                                                                          | Layer    |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 1–2 | `tests/e2e/auth.e2e.spec.ts` › signs in with a code and logs out                                                                                            | e2e      |
+| 1   | `tests/int/auth.int.spec.ts` › authenticates requests carrying a valid session cookie                                                                       | int      |
+| 3   | `tests/e2e/auth.e2e.spec.ts` › unknown addresses get the same answer as real ones; `otp.unit` › answers the same for unknown addresses but sends nothing    | e2e/unit |
+| 4   | `tests/e2e/auth.e2e.spec.ts` › a wrong code is rejected                                                                                                     | e2e      |
+| 5   | `tests/unit/otp.unit.spec.ts` › burns the code after 5 wrong attempts, even if the 6th is right                                                             | unit     |
+| 6   | `tests/unit/otp.unit.spec.ts` › rejects expired codes · only accepts the latest code · signs a user in once with the right code                             | unit     |
+| 7   | `tests/unit/otp.unit.spec.ts` › limits codes per email · limits requests per IP across addresses                                                            | unit     |
+| 8   | `tests/unit/otp.unit.spec.ts` › reports a mail failure instead of pretending the code was sent                                                              | unit     |
+| 9   | `tests/unit/otp.unit.spec.ts` › rejects malformed emails · rejects an empty/whitespace/too-long email · rejects malformed codes without spending an attempt | unit     |
+| 10  | `tests/e2e/auth.e2e.spec.ts` › password login is disabled on the API                                                                                        | e2e      |
+| 11  | `tests/unit/redirect.unit.spec.ts` › falls back to /admin for … (absolute, protocol-relative, backslash, tab, javascript:)                                  | unit     |
+| 13  | `tests/int/auth.int.spec.ts` › hides the user list from anonymous API clients · has no self sign-up                                                         | int      |
+| 12  | `tests/unit/session.unit.spec.ts` › rejects a tampered user id or signature · rejects tokens signed with another secret · expires                           | unit     |
+| 13  | `tests/int/auth.int.spec.ts` › keeps login codes closed to the public API                                                                                   | int      |

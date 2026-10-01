@@ -44,4 +44,58 @@ describe('joinWaitlist', () => {
       payload.find({ collection: 'waitlist-signups', overrideAccess: false }),
     ).rejects.toThrow()
   })
+
+  it('refuses anonymous creates, updates and deletes through the API', async () => {
+    await expect(
+      payload.create({
+        collection: 'waitlist-signups',
+        data: { email: 'anon@example.com' },
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow()
+
+    await joinWaitlist(payload, { email: 'target@example.com' })
+    const where = { email: { equals: 'target@example.com' } }
+    await expect(
+      payload.update({
+        collection: 'waitlist-signups',
+        where,
+        data: { source: 'x' },
+        overrideAccess: false,
+      }),
+    ).rejects.toThrow()
+    await expect(
+      payload.delete({ collection: 'waitlist-signups', where, overrideAccess: false }),
+    ).rejects.toThrow()
+    expect((await payload.count({ collection: 'waitlist-signups', where })).totalDocs).toBe(1)
+  })
+
+  it('lets a signed-in admin read signups with access control on', async () => {
+    await joinWaitlist(payload, { email: 'visible@example.com' })
+    const user = await payload.create({
+      collection: 'users',
+      data: { email: 'waitlist-reader@example.com' },
+    })
+    try {
+      const { docs } = await payload.find({
+        collection: 'waitlist-signups',
+        overrideAccess: false,
+        user: { ...user, collection: 'users' },
+      })
+      expect(docs.map((d) => d.email)).toEqual(['visible@example.com'])
+    } finally {
+      await payload.delete({ collection: 'users', id: user.id })
+    }
+  })
+
+  it('treats two simultaneous submits of the same email as one signup', async () => {
+    const results = await Promise.all([
+      joinWaitlist(payload, { email: 'double@example.com' }),
+      joinWaitlist(payload, { email: 'double@example.com' }),
+    ])
+
+    expect(results.map((r) => r.created).sort()).toEqual([false, true])
+    const { totalDocs } = await payload.count({ collection: 'waitlist-signups' })
+    expect(totalDocs).toBe(1)
+  })
 })
