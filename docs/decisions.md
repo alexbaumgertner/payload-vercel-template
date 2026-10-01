@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-01 — Backups: rely on Neon instant restore, document the Blob gap, drill quarterly
+
+**Context.** The template had no restore procedure. Neon keeps a plan-dependent history window; Vercel Blob has no
+native backup and deletes are permanent.
+
+**Options.** (a) Ship a `pg_dump` + Blob-copy cron job in the template. (b) Document Neon's built-in restore, a
+non-destructive drill and the Blob gap; leave extra backup jobs to products that need them. (c) Nothing.
+
+**Decision.** (b): `docs/runbooks/backup-restore.md`, documentation only. Option (a) adds an S3 bucket, credentials and
+a cron that every product would have to pay for and monitor, while most early products only store marketing images.
+The drill branches from a past point instead of restoring production, so practising never destroys data. Every
+plan-dependent number is marked `[verify in dashboard]` rather than guessed.
+
+**Consequences.** Recovery point for Postgres = anywhere inside the history window; for Blob media = none (re-upload
+originals). Baseline stays `partial` until a product adds an off-platform copy (pg_dump to S3, Blob cron copy) and
+the drill has been run once with real timings.
+Revisit if: users upload files, or compliance requires backups outside Neon/Vercel.
+
 ## 2026-10-01 — i18n: next-intl for the public site, English unprefixed, Payload localization for content
 
 **Context.** Products from the template launch in English and Russian. The public site needs localized URLs, copy,

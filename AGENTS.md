@@ -39,6 +39,7 @@ tests/unit|browser|int|e2e/   *.unit.spec.ts · *.browser.spec.tsx · *.int.spec
 docs/decisions.md     why things are the way they are — read before re-architecting
 docs/stories/         user stories with acceptance criteria → tests (template: _template.md)
 docs/baseline.md      status of auth, i18n, headers, backups, monitoring, analytics, CI, deps
+docs/runbooks/        human-only procedures (backup & restore) — agents read, never execute against production
 ```
 
 ## Rules
