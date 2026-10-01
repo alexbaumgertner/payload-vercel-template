@@ -1,13 +1,9 @@
 import { expect, test } from '@playwright/test'
 
-import { clearTestLoginCodes, login, requestCodeInUi } from '../helpers/login'
+import { login, requestCodeInUi } from '../helpers/login'
 import { cleanupTestUser, seedTestUser } from '../helpers/seedUser'
 
 test.describe('Email-code login', () => {
-  test.beforeAll(async () => {
-    await clearTestLoginCodes()
-  })
-
   test('login page asks for an email and has no password field', async ({ page }) => {
     await page.goto('/admin/login')
     await expect(page.getByLabel('Email')).toBeVisible()
@@ -42,12 +38,15 @@ test.describe('Email-code login', () => {
     try {
       await login({ page, email })
 
-      const logout = page.getByRole('button', { name: 'Log out' })
-      if (!(await logout.isVisible())) {
+      // The nav settles (open/closed by breakpoint and saved preference) only after hydration;
+      // a closed nav stays "visible" off-canvas, so check its state instead of the button's.
+      await expect(page.locator('.template-default--nav-hydrated')).toBeAttached()
+      if ((await page.locator('.template-default--nav-open').count()) === 0) {
         // Payload renders separate desktop and mobile nav togglers; only one is visible.
         await page.getByRole('button', { name: 'Open Menu' }).filter({ visible: true }).click()
+        await expect(page.locator('.template-default--nav-open')).toBeAttached()
       }
-      await logout.click()
+      await page.getByRole('button', { name: 'Log out' }).click()
       await page.waitForURL(/\/admin\/login/)
 
       await page.goto('/admin')

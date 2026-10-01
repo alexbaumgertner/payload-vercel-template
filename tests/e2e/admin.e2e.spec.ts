@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { clearTestLoginCodes, login } from '../helpers/login'
+import { login } from '../helpers/login'
 import { cleanupTestUser, seedTestUser } from '../helpers/seedUser'
 
 test.describe('Admin panel', () => {
@@ -9,7 +9,6 @@ test.describe('Admin panel', () => {
   let page: Page
 
   test.beforeAll(async ({ browser }, testInfo) => {
-    await clearTestLoginCodes()
     const email = await seedTestUser(`panel-${testInfo.project.name}`)
     page = await (await browser.newContext()).newPage()
     await login({ page, email })

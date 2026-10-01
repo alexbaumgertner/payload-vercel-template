@@ -7,12 +7,18 @@ import config from '../../src/payload.config'
 
 export const E2E_CODE = '424242'
 
-/** Rate-limit rows from earlier runs would otherwise lock the tests out for an hour. */
-export async function clearTestLoginCodes(): Promise<void> {
+/** Each test gets its own client IP so per-IP rate limits and cleanup never cross workers. */
+const testIp = (email: string) => `e2e:${email}`
+
+/**
+ * Rate-limit rows from earlier runs would otherwise lock the tests out. Scoped to one email/IP:
+ * a global delete races with parallel workers and wipes the code another test just issued.
+ */
+export async function clearTestLoginCodes(email: string): Promise<void> {
   const payload = await getPayload({ config })
   await payload.delete({
     collection: 'auth-codes',
-    where: { email: { like: '@example.com' } },
+    where: { or: [{ email: { equals: email } }, { requestIp: { equals: testIp(email) } }] },
   })
 }
 
@@ -22,7 +28,7 @@ export async function clearTestLoginCodes(): Promise<void> {
  */
 export async function issueKnownCode(email: string): Promise<void> {
   const payload = await getPayload({ config })
-  const result = await requestCode(email, 'e2e-helper', {
+  const result = await requestCode(email, testIp(email), {
     store: payloadOtpStore(payload),
     secret: payload.secret,
     minResponseMs: 0,
@@ -33,6 +39,8 @@ export async function issueKnownCode(email: string): Promise<void> {
 }
 
 export async function requestCodeInUi(page: Page, email: string): Promise<void> {
+  await clearTestLoginCodes(email)
+  await page.setExtraHTTPHeaders({ 'x-forwarded-for': testIp(email) })
   await page.goto('/admin/login')
   await page.getByLabel('Email').fill(email)
   await page.getByRole('button', { name: 'Send login code' }).click()
