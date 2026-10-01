@@ -1,4 +1,4 @@
-# Indie Starter
+# payload-vercel-template
 
 Production-ready starter for a solo SaaS: **Next.js 16 + Payload 3 + PostgreSQL (Neon) on Vercel**, with TypeScript, CSS Modules, Zod, Vitest and Playwright — and an AI workflow that works the same in **Cursor** and **Claude Code**.
 
@@ -28,6 +28,8 @@ What's inside out of the box:
 ## Quick start
 
 Requirements: Node 22.12+, pnpm 10, PostgreSQL 15+ (local install or `docker compose up -d`).
+
+Click **Use this template** on GitHub (or `gh repo create my-app --template alexbaumgertner/payload-vercel-template --private --clone`), then rename the product in `package.json` and `src/config/site.ts`.
 
 ```bash
 pnpm install

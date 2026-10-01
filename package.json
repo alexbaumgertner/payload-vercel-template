@@ -1,5 +1,5 @@
 {
-  "name": "indie-starter",
+  "name": "payload-vercel-template",
   "version": "0.1.0",
   "private": true,
   "description": "Next.js 16 + Payload 3 + Postgres (Neon) starter with an AI-first workflow",
