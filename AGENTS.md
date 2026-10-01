@@ -12,6 +12,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · Vitest 5 · Playwrigh
 
 - `pnpm dev` — http://localhost:43127 (admin: `/admin`)
 - `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
+- `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)
 - `pnpm test:e2e` — Playwright (desktop + mobile), reuses a running dev server
 - `pnpm generate:types` — after ANY collection/field change; commit `src/payload-types.ts`

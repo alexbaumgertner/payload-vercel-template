@@ -1,4 +1,5 @@
 import react from '@vitejs/plugin-react'
+import { playwright } from '@vitest/browser-playwright'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vitest/config'
 
@@ -18,6 +19,23 @@ export default defineConfig({
           name: 'unit',
           environment: 'jsdom',
           include: ['tests/unit/**/*.unit.spec.{ts,tsx}'],
+        },
+      },
+      {
+        extends: true,
+        // Server actions are vi.mock'ed in browser tests, but Vite still crawls their imports;
+        // stubbing the Payload client keeps Node-only code out of the browser bundle.
+        resolve: { alias: { '@/lib/payload': emptyModule } },
+        test: {
+          name: 'browser',
+          include: ['tests/browser/**/*.browser.spec.{ts,tsx}'],
+          browser: {
+            enabled: true,
+            provider: playwright(),
+            headless: !process.env.BROWSER_HEADED,
+            instances: [{ browser: 'chromium' }],
+            screenshotFailures: false,
+          },
         },
       },
       {

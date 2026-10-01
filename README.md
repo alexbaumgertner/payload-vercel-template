@@ -52,12 +52,26 @@ Add more users with `pnpm create-admin you@example.com` (there is no sign-up scr
 | ---------------------------- | --------------------------------------------------------------------------- |
 | `pnpm dev`                   | Dev server on port 43127 (Turbopack)                                        |
 | `pnpm check`                 | typecheck + lint + unit tests — the "am I done?" command                    |
+| `pnpm test:browser`          | Vitest Browser Mode: client components in real Chromium (via Playwright)    |
+| `pnpm test:browser:watch`    | Same, headed, re-runs on save — inspect the iframe with DevTools            |
 | `pnpm test:int`              | Vitest against the `app_test` Postgres database                             |
 | `pnpm test:e2e`              | Playwright, desktop + mobile (`pnpm exec playwright install chromium` once) |
 | `pnpm generate:types`        | Regenerate `src/payload-types.ts` after schema changes                      |
 | `pnpm migrate:create <name>` | Create a migration before merging schema changes                            |
 | `pnpm seed`                  | Idempotent demo data                                                        |
 | `pnpm create-admin <email>`  | Add a user who can sign in with an email code                               |
+
+## Testing layers
+
+| Layer             | Runs in                                | Use it for                                                                |
+| ----------------- | -------------------------------------- | ------------------------------------------------------------------------- |
+| `tests/unit`      | Vitest + jsdom                         | Zod schemas, pure helpers, OTP/session logic                              |
+| `tests/browser`   | Vitest Browser Mode, Chromium over CDP | Client components: real focus, typing, pending/error states               |
+| `tests/int`       | Vitest + Node + Postgres               | Services, access control, auth strategy via the Payload Local API         |
+| `tests/e2e`       | Playwright, desktop + Pixel 7          | Full user flows; `devtools.e2e.spec.ts` adds CDP throttling, CLS, console |
+| `chrome-devtools` | MCP server for the agent               | Interactive debugging: console, network, performance traces, Lighthouse   |
+
+Debugging: `pnpm test:browser:watch` opens Chromium with the component in an iframe (DevTools work as usual); `pnpm test:e2e --ui` or `--debug` gives Playwright's time-travel UI, and `trace: 'on-first-retry'` saves traces on CI.
 
 ## Deploy (Vercel + Neon)
 
@@ -82,7 +96,7 @@ The same files drive Cursor and Claude Code:
 | `.claude/skills/*`                             | `/feature`, `/ship`, `/new-collection`, auto `db-migrations`, `payload` reference | same                                   |
 | `.claude/agents/reviewer.md`                   | `/reviewer` subagent (read-only)                                                  | same                                   |
 | `.cursor/hooks.json` / `.claude/settings.json` | prettier on edit, shell guard, typecheck before finishing                         | same scripts in `scripts/agent-hooks/` |
-| `.cursor/mcp.json` / `.mcp.json`               | Context7, Neon, Vercel (+ Playwright for Claude Code)                             |                                        |
+| `.cursor/mcp.json` / `.mcp.json`               | Context7, Neon, Vercel, Chrome DevTools (+ Playwright for Claude Code)            |                                        |
 | `.cursor/worktrees.json`                       | `/worktree` and `/best-of-n` get deps + `.env` automatically                      |                                        |
 | `.cursor/environment.json`                     | Cloud Agents: Postgres + deps via `scripts/cloud-setup.sh`                        |                                        |
 | `.cursor/BUGBOT.md`                            | PR review rules                                                                   |                                        |
