@@ -40,7 +40,9 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 - **Hooks:** `PreToolUse` Bash → `guard-shell.mjs`; `mcp__.*` → `guard-mcp.mjs` (allow-list in
   `scripts/agent-hooks/policy.mjs`); `PostToolUse` edits → prettier; `Stop` → `pnpm typecheck` if TS files changed,
   and blocks finishing until it passes. A blocked command is intentional — ask the human, don't rephrase around it.
-- **Denied:** reading `.env` / `.env.*` (use `.env.example` and `src/lib/env.ts`), Neon/Vercel write and secret tools.
+- **Files:** `.env.development.local` / `.env.test.local` may be read and written (per-checkout DB and port, see
+  "Parallel checkouts"). **Denied:** `.env.production*` and `.vercel/**` (read, edit, write). `.env` asks first — use
+  `.env.example` and `src/lib/env.ts` instead. The MCP guard denies Neon/Vercel write and secret tools.
 - **Skills:** `/feature` (story → approval → failing tests → code), `/new-collection`, `/ship` (check, types,
   migration reminder, commit, push); auto-loaded `payload` and `db-migrations`. Subagent: `reviewer` (read-only).
 - Changing guard rules means updating `tests/unit/agent-guards.unit.spec.ts`.

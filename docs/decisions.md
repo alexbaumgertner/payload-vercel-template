@@ -2,6 +2,22 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Agent file access: local env files yes, production env and `.vercel/` no
+
+**Context.** `CLAUDE.md` said reading `.env` / `.env.*` was denied, but the `deny` list in `.claude/settings.json` was
+commented out, so nothing was denied. Parallel checkouts now keep their database URLs and port in
+`.env.development.local` / `.env.test.local`, which agents need to create and fix.
+
+**Decision.** Allow Read/Edit/Write of `.env.development.local` and `.env.test.local`; deny Read/Edit/Write of
+`.env.production*` and `.vercel/**` (where `vercel pull` writes production settings and secrets). `.env` stays
+unlisted, so Claude Code asks. The shell guard blocks `vercel pull` / `vercel env pull`, pushes to `main`, and
+rolls back migrations only on a local scratch database named in the same command segment (a second segment
+cannot ride along). Settings, `CLAUDE.md` and `AGENTS.md` state the same rule; a unit test pins the settings.
+
+**Consequences.** Local secrets (`PAYLOAD_SECRET`, optional API keys) in the `.local` files are readable by agents —
+keep production values out of them. Codex has no file-permission layer; `AGENTS.md` states the rule.
+Revisit if production secrets ever need to live in a local file, or Claude Code changes its path-rule syntax.
+
 ## 2026-10-20 — Multi-agent workflow: one story, one branch, one PR
 
 **Context.** Products from the template are built by several agents (Claude Code, Codex, Cursor, a home-server

@@ -54,6 +54,9 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
   Wrap them in `monitorAction()`; errors you catch and turn into a message go to `captureServerError()`.
 - Product events go through `track()` from `src/lib/analytics.ts`; add new events to its catalog. Never put emails or ids in props.
 - Every new env var: add to `src/lib/env.ts` schema AND `.env.example`.
+- Env files: agents may read/write `.env.development.local` and `.env.test.local` (local DB and port only). Never
+  read or write `.env.production*` or `.vercel/`, and never run `vercel pull` / `vercel env pull` — they put
+  production secrets into the checkout.
 - Styling: CSS Modules + tokens from `globals.css`. No Tailwind, no CSS-in-JS, no inline styles except dynamic values.
 - UI must handle empty, loading and error states and work at 360px width.
 - No `any`, no `@ts-ignore`. Prefer `satisfies` and inferred Zod types.
@@ -94,8 +97,10 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 ## Agent hooks
 
 - Claude Code (`.claude/settings.json`) and Cursor (`.cursor/hooks.json`) run the guards in `scripts/agent-hooks/`:
-  `guard-shell` (destructive commands, production deploys, secrets), `guard-mcp` (Neon/Vercel allow-lists), prettier
-  after edits, typecheck on stop. Rules live in `policy.mjs`; tests in `tests/unit/agent-guards.unit.spec.ts`.
+  `guard-shell` (destructive commands, force pushes and pushes to `main`, production deploys, secrets), `guard-mcp`
+  (Neon/Vercel allow-lists), prettier after edits, typecheck on stop. Rules live in `policy.mjs`; tests in
+  `tests/unit/agent-guards.unit.spec.ts`. Rolling back migrations is allowed only with
+  `DATABASE_URL=…@127.0.0.1|localhost/app_test` (or `app_<suffix>_test`, `app_migr*`) in the same command.
 - Codex (`.codex/hooks.json`) only runs `pnpm check` on Stop — and only after the project's `.codex/` layer is trusted
   and the hook approved in `/hooks`. **`guard-shell` and `guard-mcp` do not run under Codex**: follow the rules in
   `policy.mjs` by hand, and never connect to production or work around a block.
