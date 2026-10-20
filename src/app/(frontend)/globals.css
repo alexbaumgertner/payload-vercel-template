@@ -9,7 +9,13 @@
   --color-accent-strong: #c2410c;
   --color-accent-soft: #fff1e6;
   --color-success: #2f7d4f;
+  /* Success-coloured small text on a tinted background (≥ 4.5:1). */
+  --color-success-strong: #276b43;
   --color-danger: #c92a2a;
+  /* Filled buttons: text on --color-button must stay ≥ 4.5:1 (axe e2e, both themes). */
+  --color-button: #c2410c;
+  --color-button-hover: #9a3412;
+  --color-on-button: #ffffff;
 
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -37,7 +43,11 @@
     --color-accent-strong: #ff9357;
     --color-accent-soft: #2e1d12;
     --color-success: #5cc98a;
+    --color-success-strong: #5cc98a;
     --color-danger: #ff6b6b;
+    --color-button: #ff7a2f;
+    --color-button-hover: #ff9357;
+    --color-on-button: #121110;
     --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
     --shadow-md: 0 8px 30px rgb(0 0 0 / 35%);
   }

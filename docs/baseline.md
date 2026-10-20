@@ -6,6 +6,7 @@ What every product built from this template gets out of the box. Update this tab
 | ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------ |
 | Auth               | done    | Passwordless email codes for the admin; hashed codes, DB rate limits, signed cookie                                      |
 | i18n               | done    | next-intl: `en` (unprefixed) + `/ru`; hreflang, `<html lang>`, switcher; changelog via Payload localization              |
+| Accessibility      | done    | axe on every public page (light/dark, desktop/mobile), fails on serious/critical; one `<main>`/`h1`; contrast tokens     |
 | Security headers   | partial | HSTS, nosniff, Referrer/Permissions-Policy, frame-ancestors enforced; CSP report-only, no violations in a prod build     |
 | Backups            | partial | Daily encrypted DB copy by email (off until configured) + verify/restore scripts; Neon restore; Blob media not backed up |
 | Monitoring         | done    | Sentry (server, client, Server Actions) when `SENTRY_DSN` is set; PII scrubbed; no-op otherwise                          |

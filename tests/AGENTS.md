@@ -16,8 +16,9 @@ Applies to `tests/`, `vitest.config.mts` and `playwright.config.ts`.
   per run/project. Runs on desktop and mobile projects. Sign in with `tests/helpers/login.ts`. Shared demo content
   (`scripts/seed-demo.ts`) is seeded once by `tests/helpers/e2e-setup.ts` (`globalSetup`) — add rows several specs read
   there instead of seeding the same rows from parallel workers.
-  `devtools.e2e.spec.ts` uses CDP (`page.context().newCDPSession(page)`) for console-error checks, throttling and CLS —
-  add new public pages to its list.
+  `devtools.e2e.spec.ts` uses CDP (`page.context().newCDPSession(page)`) for console-error checks, throttling and CLS;
+  `a11y.e2e.spec.ts` runs axe (serious/critical, light + dark) and landmark checks. Both visit
+  `tests/helpers/public-pages.ts` — add every new public page there.
 - Debugging a UI bug interactively: use the `chrome-devtools` MCP (console, network, performance trace, Lighthouse)
   against `http://localhost:3000`, then lock the fix in with a browser or e2e test.
 - A bug fix starts with a failing test that reproduces it.

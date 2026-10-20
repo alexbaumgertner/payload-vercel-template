@@ -46,7 +46,7 @@
 
 .tag[data-tag='improvement'] {
   background: color-mix(in srgb, var(--color-success) 12%, transparent);
-  color: var(--color-success);
+  color: var(--color-success-strong);
 }
 
 .content {

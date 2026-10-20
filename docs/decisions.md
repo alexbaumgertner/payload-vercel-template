@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Accessibility floor: axe on every public page, serious/critical only, both themes
+
+**Context.** Nothing checked accessibility automatically. The first axe run found three real `serious` issues: white
+text on the orange button (3.6:1 light; 2.6:1 in dark mode), the green "improvement" tag on its own tint (4.3:1), and
+the language switcher's `aria-label="English"` on a link that shows `EN` (WCAG 2.5.3 label-in-name).
+
+**Decision.** `@axe-core/playwright` (dev). `tests/e2e/a11y.e2e.spec.ts` runs axe on each page in
+`tests/helpers/public-pages.ts` (shared with `devtools.e2e.spec.ts`) on desktop and mobile, in light and dark
+`prefers-color-scheme`, and fails on `serious`/`critical` only; all violations are attached to the report. Plus
+landmarks: one `<main>`, one `h1`, `<html lang>`. Fixes: tokens `--color-button` / `--color-button-hover` /
+`--color-on-button` and `--color-success-strong` (light and dark values), switcher name = visible code + visually
+hidden language name. Next's dev overlay (`nextjs-portal`) is excluded.
+
+**Consequences.** New public pages must be added to the shared list to be checked. `minor`/`moderate` findings don't
+fail CI. Axe can't judge announcements or focus order — those are rules in `src/components/AGENTS.md`.
+Revisit if: a page needs a justified exception (disable that rule for that selector, with a comment), or `moderate`
+findings start piling up in the attachments.
+
 ## 2026-10-20 — Migrations are checked twice: statically, and applied to an empty database in CI
 
 **Context.** Local databases get their schema from Payload's dev push, so a migration that misses something is
