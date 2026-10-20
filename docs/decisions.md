@@ -2,6 +2,21 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Cron routes fail closed without `CRON_SECRET`
+
+**Context.** Vercel Cron calls routes with `Authorization: Bearer $CRON_SECRET`. The common pattern
+`!secret || header === …` opens the route whenever the secret is missing — on previews, which usually don't get the
+variable and whose database is a branch of production. sync-trainer had exactly that bug in its backup route.
+
+**Decision.** `src/lib/cron-auth.ts` (from hht-research-platform / sync-trainer): with a secret, the header must match
+exactly, compared as SHA-256 digests with `timingSafeEqual` (constant time, any length); without one, allowed only when
+`VERCEL_ENV` is unset (local runs). Env is a parameter, so every branch is unit-tested. `CRON_SECRET` must be ≥ 16
+characters (`env.ts`).
+
+**Consequences.** Set `CRON_SECRET` in Vercel (Production) before relying on any cron; without it the cron calls get
+401 and the job silently doesn't run — the backup's "no email that day" rule makes that visible.
+Revisit if: Vercel signs cron requests some other way.
+
 ## 2026-10-20 — Blob media: `preview/` prefix, same `media` columns everywhere
 
 **Context.** Preview and production deployments share one Vercel Blob store (the token is issued to both), but every

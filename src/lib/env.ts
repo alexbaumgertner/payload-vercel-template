@@ -34,6 +34,9 @@ const serverEnvSchema = z.object({
   SENTRY_ORG: z.string().min(1).optional(),
   SENTRY_PROJECT: z.string().min(1).optional(),
   SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
+  // Vercel Cron sends it as `Authorization: Bearer …`. Unset: cron routes refuse every request on
+  // Vercel and are open only locally. See src/lib/cron-auth.ts.
+  CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
   // Read by tooling, not the app (listed so every variable has one home). See "Parallel
   // checkouts" in AGENTS.md: scripts/dev.mjs, playwright.config.ts, tests/helpers/int-setup.ts,
   // docker-compose.yml.
