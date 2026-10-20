@@ -15,7 +15,8 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 ## Commands
 
 - `pnpm dev` — http://localhost:3000, or `PORT` (admin: `/admin`)
-- `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
+- `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done** — together with `test:int` and
+  `test:e2e`: e2e is part of "done" (`tests/AGENTS.md` → Lessons).
 - `pnpm format:check` — prettier check, as in CI (`pnpm format` fixes; agent hooks format edited files)
 - `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)
@@ -23,7 +24,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 - `pnpm generate:types` — after ANY collection/field change; commit `src/payload-types.ts`
 - `pnpm generate:importmap` — after adding custom admin components
 - `pnpm migrate:create <name>` — before merging schema changes (see "Database")
-- `pnpm seed` — idempotent demo data + `admin@example.com`
+- `pnpm seed` — idempotent demo data (`scripts/seed-demo.ts`, also seeded by e2e global setup) + `admin@example.com`
 - `pnpm create-admin <email>` — add a user (there is no sign-up or first-user screen)
 - `pnpm backup:verify <file>` / `pnpm backup:restore <file>` — check / restore a mailed backup (human; `docs/runbooks/backup-restore.md`)
 
@@ -86,7 +87,9 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 
 - Local dev uses Payload **push** mode (schema syncs automatically). Never run `pnpm migrate` against the dev DB.
 - Production only changes via migrations: after changing collections run `pnpm migrate:create <name>` and commit the files.
-  Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
+  Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`. `tests/unit/migrations.unit.spec.ts` fails when a
+  collection lacks its table or `payload_locked_documents_rels` column in the migrations; CI job `migrations` applies them
+  to an empty DB with push off (`scripts/check-migrations.sh`) and runs `test:int` on that schema.
 - Local tooling refuses remote databases (`src/lib/database-target.ts`): push only into a local DB, the dev server /
   Payload CLI / `create-admin` / `backup:restore` need `ALLOW_REMOTE_DATABASE=1` (human-only — the shell guard blocks
   it), `seed` runs only locally or on a Vercel Preview build.
@@ -127,6 +130,8 @@ Several copies of the repo (worktrees, parallel agents) can run side by side on 
 1. User-facing features start as a story in `docs/stories/` (`/feature`): approval → failing tests per criterion → code.
 2. Other tasks touching >3 files or the data model: plan first, wait for approval.
 3. Verify: `pnpm check`, `pnpm test:int`, `pnpm test:e2e`; check UI in the browser (Chrome DevTools MCP), then `reviewer`.
+   Every safety check you add (guard, env gate, access rule, migration test): break what it protects, see it fail,
+   restore — and say so in the commit body.
 4. Conventional commits (`feat:`, `fix:`, `chore:` …), one logical change per commit; update `docs/baseline.md`.
 
 ## Multi-agent workflow (Claude Code · Codex · Cursor · orchestrator · human)

@@ -2,6 +2,74 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Preview smoke: health + Lighthouse on every Vercel Preview, SEO without `is-crawlable`
+
+**Context.** CI tests a dev server; nothing looked at a real deployment (production build, Neon branch, Vercel
+functions) before merge. A sibling project runs a smoke job on Vercel's `deployment_status` event.
+
+**Decision.** `.github/workflows/preview-smoke.yml`: on a successful deployment whose environment starts with
+`Preview`, call `/api/health` (retries for cold starts; must contain `"ok":true`), run Lighthouse 12.8.2 (pinned, via
+`npx`, not a dependency) on `/` and `/changelog`, gate the scores with `scripts/lighthouse-check.mjs` (performance 0.8,
+accessibility / best-practices / SEO 0.9) and upload JSON + HTML reports as artifacts. Previews are behind Vercel
+Authentication, so requests carry `x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET`; **without the
+secret the job emits a notice and skips** — new products start without it. **SEO:** Vercel sends
+`X-Robots-Tag: noindex` on previews, so `is-crawlable` always fails there; the gate recomputes the SEO score from its
+weighted audits without that one audit (every other SEO audit still counts) rather than dropping SEO entirely.
+
+**Consequences.** Indexability of production is not checked anywhere — check `/robots.txt` and headers after the
+first production deploy. Lighthouse on shared runners is noisy; perf 0.8 (mobile emulation) may flake. The bypass
+header is sent on every request the audited page makes — fine while all requests are same-origin; revisit before
+adding third-party scripts.
+Revisit if: perf flakes (median of several runs, or `--preset=desktop`), third-party origins are added, or a
+production smoke is wanted (needs a separate, unprotected target).
+
+## 2026-10-20 — Accessibility floor: axe on every public page, serious/critical only, both themes
+
+**Context.** Nothing checked accessibility automatically. The first axe run found three real `serious` issues: white
+text on the orange button (3.6:1 light; 2.6:1 in dark mode), the green "improvement" tag on its own tint (4.3:1), and
+the language switcher's `aria-label="English"` on a link that shows `EN` (WCAG 2.5.3 label-in-name).
+
+**Decision.** `@axe-core/playwright` (dev). `tests/e2e/a11y.e2e.spec.ts` runs axe on each page in
+`tests/helpers/public-pages.ts` (shared with `devtools.e2e.spec.ts`) on desktop and mobile, in light and dark
+`prefers-color-scheme`, and fails on `serious`/`critical` only; all violations are attached to the report. Plus
+landmarks: one `<main>`, one `h1`, `<html lang>`. Fixes: tokens `--color-button` / `--color-button-hover` /
+`--color-on-button` and `--color-success-strong` (light and dark values), switcher name = visible code + visually
+hidden language name. Next's dev overlay (`nextjs-portal`) is excluded.
+
+**Consequences.** New public pages must be added to the shared list to be checked. `minor`/`moderate` findings don't
+fail CI. Axe can't judge announcements or focus order — those are rules in `src/components/AGENTS.md`.
+Revisit if: a page needs a justified exception (disable that rule for that selector, with a comment), or `moderate`
+findings start piling up in the attachments.
+
+## 2026-10-20 — Migrations are checked twice: statically, and applied to an empty database in CI
+
+**Context.** Local databases get their schema from Payload's dev push, so a migration that misses something is
+mended silently everywhere except production. A sibling project shipped a new collection whose migration created its
+tables but not its `<slug>_id` column in `payload_locked_documents_rels`; Payload reads that column on every write
+to any collection, so production broke on saving a user. That project also concluded that `payload migrate` pushes
+before migrating locally, which would make any "fresh database" check meaningless.
+
+**Finding (Payload 3.90.2, verified by experiment).** `payload migrate` does **not** push, whatever `PAYLOAD_DB_PUSH`
+says: the CLI sets `PAYLOAD_MIGRATING=true` before init, and `@payloadcms/db-postgres` skips `pushDevSchema` then.
+With the last migration file moved aside, an empty database stayed without its tables even with `PAYLOAD_DB_PUSH=true`.
+(The sibling project ran migrations through its own config, where push followed `NODE_ENV`.) Two more facts: the CLI
+applies the files in `src/migrations` sorted by name (`index.ts` is not consulted), and on a database that was ever
+pushed (a `batch = -1` row) migrate asks for confirmation and, without a TTY, **hangs**.
+
+**Decision.** (1) `tests/unit/migrations.unit.spec.ts` replays the `up()` SQL in file order, without a database:
+every collection from the sanitized config has its table, its `<slug>_id` in `payload_locked_documents_rels` (auth
+collections also in `payload_preferences_rels`), nothing alters or references a table before it exists, names are
+unique Payload timestamps, and `index.ts` lists them in the same order. (2) CI job `migrations`:
+`scripts/check-migrations.sh` refuses a non-local or non-empty database, applies all migrations with
+`PAYLOAD_DB_PUSH=false` under a 5-minute timeout, and checks every file was recorded; then `pnpm test:int` runs against
+that schema with push off. With the `auth_codes_id` column cut from its migration, migrate still succeeded — 34 int
+tests then failed with `column … auth_codes_id does not exist`, and the unit spec failed too.
+
+**Consequences.** A schema change without a matching migration fails the PR, not production. The CI run is ~2 minutes
+longer. The static parser understands Payload-generated SQL; hand-written migrations must keep that shape.
+Revisit if: Payload changes the migrate CLI (re-run the experiment in `scripts/check-migrations.sh`'s header), or a
+migration legitimately needs SQL the parser can't read.
+
 ## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
 
 **Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the

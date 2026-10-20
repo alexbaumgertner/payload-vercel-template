@@ -28,12 +28,13 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 ```
 
 - `int` needs local Postgres (`docker compose up -d` creates `app` + `app_test`); `tests/helpers/int-setup.ts` loads
-  `.env.test.local` then `.env` and forces `DATABASE_URL` to `TEST_DATABASE_URL` / `app_test`. Files run serially
-  (`fileParallelism: false`).
+  `.env.test.local` then `.env`, deletes `RESEND_API_KEY` and forces `DATABASE_URL` to `TEST_DATABASE_URL` / `app_test`
+  (`tests/helpers/test-env.ts`). Files run serially (`fileParallelism: false`).
 - `e2e` reuses a dev server already on `E2E_PORT ?? PORT ?? 3000` (else starts one and waits for `/api/health` = 200). Workers run with
-  `PAYLOAD_DB_PUSH=false`; only the dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`), seed with
-  `seedUser.ts` / `seedChangelog.ts`.
-- `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` — `vi.mock` the action.
+  `PAYLOAD_DB_PUSH=false` and without `RESEND_API_KEY`; only the dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`). Global setup
+  (`tests/helpers/e2e-setup.ts`) seeds the demo changelog from `scripts/seed-demo.ts` once — read those rows; seed
+  rows of your own only when a spec needs them (`seedUser.ts` / `seedChangelog.ts`, unique per run, cleaned up).
+- `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` and bare `payload` — `vi.mock` the action.
 
 ## Claude Code harness in this repo (`.claude/settings.json`)
 
