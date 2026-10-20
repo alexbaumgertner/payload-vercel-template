@@ -2,6 +2,26 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — SEO: robots and sitemap per environment, hreflang from one helper
+
+**Context.** The site had hreflang in the page head but no `robots.txt` or sitemap, and `metadataBase` read
+`NEXT_PUBLIC_SITE_URL` only (localhost on previews where it is unset). Vercel marks previews `noindex` by header, but
+nothing said so for a custom domain, and nothing told crawlers where the pages are.
+
+**Decision.** `src/app/robots.ts` + `src/app/sitemap.ts` over pure builders in `src/lib/seo.ts`. Robots: indexing only
+when `VERCEL_ENV=production` (allow `/`, disallow `/admin` and `/api/`, advertise the sitemap); everything else
+disallows `/`. Sitemap: every public page once per locale, each with the hreflang map from `languageAlternates()` in
+`src/i18n/alternates.ts` (the same helper `alternatesFor` uses for the page head), `lastModified` from the newest
+published changelog entry (`updatedAt` or `publishedAt`, read with `overrideAccess: false`). Both routes are
+`force-dynamic`: robots must answer for the deployment it runs on, and the sitemap is crawled rarely.
+`siteUrl()` (`src/lib/site-url.ts`): `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` →
+localhost; `metadataBase` uses it too. No `host` directive (Yandex dropped it).
+
+**Consequences.** New public pages must be added to `src/app/sitemap.ts` (and `tests/helpers/public-pages.ts`; the
+e2e compares the two). Production indexability is still only checked by hand — preview smoke can't see it.
+Revisit if: pages per changelog entry or other content pages appear (one sitemap entry per document), or the sitemap
+passes a few thousand URLs (split with `generateSitemaps`).
+
 ## 2026-10-21 — Local fonts: Geist is vendored, the build fetches nothing from Google Fonts
 
 **Context.** `next/font/google` downloads fonts during `next build`. Google can return extensionless URLs that break

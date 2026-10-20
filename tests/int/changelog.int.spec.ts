@@ -2,7 +2,7 @@ import config from '@payload-config'
 import { getPayload, type Payload } from 'payload'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { getChangelogEntries } from '@/features/changelog/queries'
+import { getChangelogEntries, getChangelogLastModified } from '@/features/changelog/queries'
 
 const { revalidatePath } = vi.hoisted(() => ({ revalidatePath: vi.fn() }))
 vi.mock('next/cache', () => ({ revalidatePath }))
@@ -84,6 +84,16 @@ describe('changelog access', () => {
   it('lists published entries newest first on the public page', async () => {
     const entries = await getChangelogEntries()
     expect(entries.map((d) => d.title)).toEqual(['Shipped', 'Older'])
+  })
+
+  it('dates the sitemap from published entries only', async () => {
+    // "Scheduled" was saved last, so its updatedAt and publishedAt are the newest overall.
+    const { docs } = await payload.find({ collection: 'changelog', overrideAccess: false })
+    const newestPublished = docs
+      .flatMap((d) => [d.updatedAt, d.publishedAt])
+      .sort()
+      .at(-1)
+    expect(await getChangelogLastModified()).toBe(newestPublished)
   })
 
   it('refuses anonymous creates, updates and deletes through the API', async () => {
