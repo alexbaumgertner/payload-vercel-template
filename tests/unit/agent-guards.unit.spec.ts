@@ -1,5 +1,8 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -176,6 +179,40 @@ describe('hook scripts', () => {
     })
     expect(result.status).toBe(2)
     expect(JSON.parse(result.stdout)).toMatchObject({ permission: 'deny' })
+  })
+
+  describe('Codex Stop hook (stop-check.mjs)', () => {
+    // A fake `pnpm` first on PATH stands in for `pnpm check`.
+    function withFakePnpm(exitCode: number) {
+      const dir = mkdtempSync(path.join(tmpdir(), 'fake-pnpm-'))
+      const bin = path.join(dir, 'pnpm')
+      writeFileSync(bin, `#!/bin/sh\necho "check output on stdout"\nexit ${exitCode}\n`)
+      chmodSync(bin, 0o755)
+      return { PATH: `${dir}${path.delimiter}${process.env.PATH}` }
+    }
+
+    it('lets Codex finish when pnpm check passes, with nothing on stdout', () => {
+      const result = runHook('stop-check.mjs', 'claude', {}, withFakePnpm(0))
+      expect(result).toMatchObject({ status: 0, stdout: '' })
+    })
+
+    it('makes Codex continue (exit 2, reason on stderr) when pnpm check fails', () => {
+      const result = runHook('stop-check.mjs', 'claude', {}, withFakePnpm(1))
+      expect(result.status).toBe(2)
+      expect(result.stdout).toBe('')
+      expect(result.stderr).toContain('pnpm check failed')
+      expect(result.stderr).toContain('check output on stdout')
+    })
+
+    it('does not loop: a turn already continued by Stop may finish', () => {
+      const result = runHook(
+        'stop-check.mjs',
+        'claude',
+        { stop_hook_active: true },
+        withFakePnpm(1),
+      )
+      expect(result).toMatchObject({ status: 0, stdout: '' })
+    })
   })
 
   it('Claude MCP hook parses mcp__server__tool names', () => {

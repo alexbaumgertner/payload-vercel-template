@@ -84,6 +84,15 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 - Never connect to the production (Neon) database from the agent — not via shell, not via Neon/Vercel MCP.
   `scripts/agent-hooks/guard-mcp.mjs` blocks it; don't work around a block, ask the human.
 
+## Agent hooks
+
+- Claude Code (`.claude/settings.json`) and Cursor (`.cursor/hooks.json`) run the guards in `scripts/agent-hooks/`:
+  `guard-shell` (destructive commands, production deploys, secrets), `guard-mcp` (Neon/Vercel allow-lists), prettier
+  after edits, typecheck on stop. Rules live in `policy.mjs`; tests in `tests/unit/agent-guards.unit.spec.ts`.
+- Codex (`.codex/hooks.json`) only runs `pnpm check` on Stop — and only after the project's `.codex/` layer is trusted
+  and the hook approved in `/hooks`. **`guard-shell` and `guard-mcp` do not run under Codex**: follow the rules in
+  `policy.mjs` by hand, and never connect to production or work around a block.
+
 ## Parallel checkouts
 
 Several copies of the repo (worktrees, parallel agents) can run side by side on one machine:

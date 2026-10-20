@@ -2,6 +2,20 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Codex parity: `pnpm check` on Stop, guards by hand
+
+**Context.** Codex does not read `CLAUDE.md` or `.claude/settings.json`, so a Codex session had no quality gate and
+no guards. Codex now supports `<repo>/.codex/hooks.json` (same event names as Claude Code; Stop accepts JSON or
+nothing on stdout, exit 2 + stderr continues the turn).
+
+**Decision.** `.codex/hooks.json` runs `scripts/agent-hooks/stop-check.mjs` on Stop: `pnpm check`, output on stderr,
+exit 2 on failure, one retry (`stop_hook_active`) so a session cannot loop forever. Shell/MCP guards are not ported:
+`AGENTS.md` (which Codex reads) states that they do not run there and the rules apply by hand.
+
+**Consequences.** Project hooks load only after the user trusts `.codex/` and approves the hook in `/hooks`. Whether
+hooks run in Codex cloud is undocumented — assume they do not.
+Revisit if Codex documents PreToolUse/shell hooks that could reuse `policy.mjs`.
+
 ## 2026-10-20 — Dev environments: dev container, cloud bootstrap, parallel checkouts
 
 **Context.** Products from the template are built by several agents at once (cloud agents, a home-server
