@@ -10,7 +10,7 @@ What every product built from this template gets out of the box. Update this tab
 | Backups            | partial | Daily encrypted DB copy by email (off until configured) + verify/restore scripts; Neon restore; Blob media not backed up |
 | Monitoring         | done    | Sentry (server, client, Server Actions) when `SENTRY_DSN` is set; PII scrubbed; no-op otherwise                          |
 | Analytics          | done    | Typed `track()` catalog, no-op by default; Vercel adapter via `ANALYTICS_PROVIDER`; DNT/GPC respected, no PII            |
-| CI                 | done    | GitHub Actions: format, check, int (Postgres 18), browser, e2e; no secrets; artifacts on failure                         |
+| CI                 | done    | GitHub Actions: format, check, int (Postgres 18), browser, e2e; migrations on an empty DB + int; no secrets              |
 | Dev environments   | done    | Dev container (Postgres 18, Claude, Codex); `cloud-pg-start.sh` for cloud agents; `local-env.sh` per checkout            |
 | Operations         | done    | `GET /api/health` (DB round-trip, 200/503); cron auth fails closed; non-login mail gated on previews and sandbox         |
 | Dependency updates | done    | Dependabot weekly; Payload / React / Next / dev-tools grouped; majors as separate PRs                                    |

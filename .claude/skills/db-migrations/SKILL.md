@@ -11,6 +11,10 @@ description: How schema changes reach Postgres/Neon in this project (Payload pus
   Review the generated SQL: renames show up as drop + add — rewrite as `ALTER ... RENAME` by hand to keep data.
   Making a field `localized` also drops its column: add `INSERT INTO "<slug>_locales" ... SELECT ..., 'en', "id"`
   before the drop (and the reverse in `down`). Example: `src/migrations/20261001_144024_localize_changelog.ts`.
+- **Checks**: `tests/unit/migrations.unit.spec.ts` (static: tables, `payload_locked_documents_rels` columns, order,
+  `index.ts`) runs in `pnpm check`. All migrations on an empty DB:
+  `createdb app_migr_check && DATABASE_URL=…/app_migr_check bash scripts/check-migrations.sh` (CI job `migrations`).
+  `payload migrate` never pushes; on a DB that was ever pushed it waits on a prompt forever.
 - **Testing a hand-edited migration**: `CREATE DATABASE app_migr OWNER app;`, apply the previous migrations from a
   `git archive HEAD` copy with `DATABASE_URL=…/app_migr pnpm migrate`, seed, then run the new one from the working tree.
 - **Production (Vercel + Neon)**: build command `pnpm build:vercel` runs `payload migrate` then `next build`.

@@ -86,7 +86,9 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 
 - Local dev uses Payload **push** mode (schema syncs automatically). Never run `pnpm migrate` against the dev DB.
 - Production only changes via migrations: after changing collections run `pnpm migrate:create <name>` and commit the files.
-  Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
+  Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`. `tests/unit/migrations.unit.spec.ts` fails when a
+  collection lacks its table or `payload_locked_documents_rels` column in the migrations; CI job `migrations` applies them
+  to an empty DB with push off (`scripts/check-migrations.sh`) and runs `test:int` on that schema.
 - Local tooling refuses remote databases (`src/lib/database-target.ts`): push only into a local DB, the dev server /
   Payload CLI / `create-admin` / `backup:restore` need `ALLOW_REMOTE_DATABASE=1` (human-only — the shell guard blocks
   it), `seed` runs only locally or on a Vercel Preview build.

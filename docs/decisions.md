@@ -2,6 +2,35 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Migrations are checked twice: statically, and applied to an empty database in CI
+
+**Context.** Local databases get their schema from Payload's dev push, so a migration that misses something is
+mended silently everywhere except production. A sibling project shipped a new collection whose migration created its
+tables but not its `<slug>_id` column in `payload_locked_documents_rels`; Payload reads that column on every write
+to any collection, so production broke on saving a user. That project also concluded that `payload migrate` pushes
+before migrating locally, which would make any "fresh database" check meaningless.
+
+**Finding (Payload 3.90.2, verified by experiment).** `payload migrate` does **not** push, whatever `PAYLOAD_DB_PUSH`
+says: the CLI sets `PAYLOAD_MIGRATING=true` before init, and `@payloadcms/db-postgres` skips `pushDevSchema` then.
+With the last migration file moved aside, an empty database stayed without its tables even with `PAYLOAD_DB_PUSH=true`.
+(The sibling project ran migrations through its own config, where push followed `NODE_ENV`.) Two more facts: the CLI
+applies the files in `src/migrations` sorted by name (`index.ts` is not consulted), and on a database that was ever
+pushed (a `batch = -1` row) migrate asks for confirmation and, without a TTY, **hangs**.
+
+**Decision.** (1) `tests/unit/migrations.unit.spec.ts` replays the `up()` SQL in file order, without a database:
+every collection from the sanitized config has its table, its `<slug>_id` in `payload_locked_documents_rels` (auth
+collections also in `payload_preferences_rels`), nothing alters or references a table before it exists, names are
+unique Payload timestamps, and `index.ts` lists them in the same order. (2) CI job `migrations`:
+`scripts/check-migrations.sh` refuses a non-local or non-empty database, applies all migrations with
+`PAYLOAD_DB_PUSH=false` under a 5-minute timeout, and checks every file was recorded; then `pnpm test:int` runs against
+that schema with push off. With the `auth_codes_id` column cut from its migration, migrate still succeeded — 34 int
+tests then failed with `column … auth_codes_id does not exist`, and the unit spec failed too.
+
+**Consequences.** A schema change without a matching migration fails the PR, not production. The CI run is ~2 minutes
+longer. The static parser understands Payload-generated SQL; hand-written migrations must keep that shape.
+Revisit if: Payload changes the migrate CLI (re-run the experiment in `scripts/check-migrations.sh`'s header), or a
+migration legitimately needs SQL the parser can't read.
+
 ## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
 
 **Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the
