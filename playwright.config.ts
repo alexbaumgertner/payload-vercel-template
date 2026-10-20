@@ -20,6 +20,8 @@ const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({
   testDir: './tests/e2e',
+  // Seeds demo content once, after the web server is up (tests/helpers/e2e-setup.ts).
+  globalSetup: './tests/helpers/e2e-setup.ts',
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,

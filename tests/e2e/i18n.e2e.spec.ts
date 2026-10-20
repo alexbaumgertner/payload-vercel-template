@@ -1,6 +1,13 @@
 import { expect, test, type Page } from '@playwright/test'
 
-import { seedChangelogEntry } from '../helpers/seedChangelog'
+import { demoChangelog } from '../../scripts/seed-demo'
+
+const translatedEntry = demoChangelog.find((entry) => entry.ru !== undefined)
+const untranslated = demoChangelog.find((entry) => entry.ru === undefined)
+if (!translatedEntry?.ru || !untranslated) {
+  throw new Error('scripts/seed-demo.ts needs a translated and an English-only changelog entry')
+}
+const translated = { ...translatedEntry, ru: translatedEntry.ru }
 
 const alternates = (page: Page) =>
   page
@@ -92,32 +99,19 @@ test.describe('Russian', () => {
     )
   })
 
-  test('shows translated changelog content and falls back to English', async ({
-    page,
-  }, testInfo) => {
-    const id = `${testInfo.project.name}-${Date.now()}`
-    const cleanups = [
-      await seedChangelogEntry(
-        { title: `Translated ${id}`, summary: 'English summary' },
-        { title: `Переведено ${id}`, summary: 'Русское описание' },
-      ),
-      await seedChangelogEntry({ title: `English only ${id}`, summary: `Not translated ${id}` }),
-    ]
-    try {
-      await page.goto('/ru/changelog')
-      await expect(page.getByRole('heading', { level: 1, name: 'Изменения' })).toBeVisible()
-      await expect(page.getByRole('heading', { name: `Переведено ${id}` })).toBeVisible()
-      await expect(page.getByRole('heading', { name: `English only ${id}` })).toBeVisible()
-      await expect(page.getByText(`Not translated ${id}`)).toBeVisible()
+  test('shows translated changelog content and falls back to English', async ({ page }) => {
+    // Demo rows from the global setup (scripts/seed-demo.ts): one translated, one English-only.
+    await page.goto('/ru/changelog')
+    await expect(page.getByRole('heading', { level: 1, name: 'Изменения' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: translated.ru.title })).toBeVisible()
+    await expect(page.getByRole('heading', { name: untranslated.title })).toBeVisible()
+    await expect(page.getByText(untranslated.summary)).toBeVisible()
 
-      // Visiting /ru stores the locale cookie, which would redirect /changelog back to /ru.
-      await page.context().clearCookies()
-      await page.goto('/changelog')
-      await expect(page.getByRole('heading', { name: `Translated ${id}` })).toBeVisible()
-      await expect(page.getByText('Русское описание')).toHaveCount(0)
-    } finally {
-      await Promise.all(cleanups.map((cleanup) => cleanup()))
-    }
+    // Visiting /ru stores the locale cookie, which would redirect /changelog back to /ru.
+    await page.context().clearCookies()
+    await page.goto('/changelog')
+    await expect(page.getByRole('heading', { name: translated.title })).toBeVisible()
+    await expect(page.getByText(translated.ru.summary)).toHaveCount(0)
   })
 
   test('renders a Russian 404 for unknown pages', async ({ page }) => {

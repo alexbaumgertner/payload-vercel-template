@@ -13,7 +13,9 @@ Applies to `tests/`, `vitest.config.mts` and `playwright.config.ts`.
   Pass `context: { disableRevalidate: true }` when creating docs whose hooks revalidate.
 - E2E (`tests/e2e/*.e2e.spec.ts`): real user flows and cross-cutting guarantees (auth, i18n, security headers,
   monitoring/analytics off by default). Use role/label locators, relative URLs (baseURL is configured), unique emails
-  per run/project. Runs on desktop and mobile projects. Sign in with `tests/helpers/login.ts`.
+  per run/project. Runs on desktop and mobile projects. Sign in with `tests/helpers/login.ts`. Shared demo content
+  (`scripts/seed-demo.ts`) is seeded once by `tests/helpers/e2e-setup.ts` (`globalSetup`) — add rows several specs read
+  there instead of seeding the same rows from parallel workers.
   `devtools.e2e.spec.ts` uses CDP (`page.context().newCDPSession(page)`) for console-error checks, throttling and CLS —
   add new public pages to its list.
 - Debugging a UI bug interactively: use the `chrome-devtools` MCP (console, network, performance trace, Lighthouse)

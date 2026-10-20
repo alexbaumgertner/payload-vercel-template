@@ -23,7 +23,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 - `pnpm generate:types` — after ANY collection/field change; commit `src/payload-types.ts`
 - `pnpm generate:importmap` — after adding custom admin components
 - `pnpm migrate:create <name>` — before merging schema changes (see "Database")
-- `pnpm seed` — idempotent demo data + `admin@example.com`
+- `pnpm seed` — idempotent demo data (`scripts/seed-demo.ts`, also seeded by e2e global setup) + `admin@example.com`
 - `pnpm create-admin <email>` — add a user (there is no sign-up or first-user screen)
 - `pnpm backup:verify <file>` / `pnpm backup:restore <file>` — check / restore a mailed backup (human; `docs/runbooks/backup-restore.md`)
 
