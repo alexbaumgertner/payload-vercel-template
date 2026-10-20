@@ -1,25 +1,20 @@
 #!/usr/bin/env bash
-# Idempotent setup for Cursor cloud agents and fresh Linux machines:
-# local Postgres with dev + test databases, dependencies, and a .env.
+# Idempotent setup for cloud agents (Codex cloud, Claude Code on the web, Cursor),
+# dev containers and fresh Linux machines: Postgres with dev + test databases,
+# dependencies, a .env and Playwright's Chromium. Safe to re-run any time
+# (e.g. when an agent finds Postgres stopped).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-if ! command -v psql >/dev/null 2>&1; then
-  sudo apt-get update -qq
-  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq postgresql
-fi
+# Root in Codex cloud, a sudo user elsewhere; sudo that cannot elevate counts as none.
+SUDO=""
+if [ "$(id -u)" -ne 0 ] && sudo -n true 2>/dev/null; then SUDO="sudo"; fi
 
-sudo service postgresql start
+# Postgres with the dev + test databases (also run by the SessionStart hook).
+bash scripts/cloud-pg-start.sh
 
-sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='app'" | grep -q 1 ||
-  sudo -u postgres psql -qc "CREATE USER app WITH PASSWORD 'app' CREATEDB;"
-for db in app app_test; do
-  sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$db'" | grep -q 1 ||
-    sudo -u postgres psql -qc "CREATE DATABASE $db OWNER app;"
-done
-
-corepack enable >/dev/null 2>&1 || true
+corepack enable >/dev/null 2>&1 || $SUDO corepack enable >/dev/null 2>&1 || true
 pnpm install --frozen-lockfile
 
 if [ ! -f .env ]; then
@@ -27,4 +22,8 @@ if [ ! -f .env ]; then
   sed -i "s/^PAYLOAD_SECRET=.*/PAYLOAD_SECRET=$(openssl rand -hex 32)/" .env
 fi
 
-pnpm exec playwright install --with-deps chromium >/dev/null
+if [ -n "$SUDO" ] || [ "$(id -u)" -eq 0 ]; then
+  pnpm exec playwright install --with-deps chromium >/dev/null
+else
+  pnpm exec playwright install chromium >/dev/null
+fi

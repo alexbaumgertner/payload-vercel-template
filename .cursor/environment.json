@@ -1,6 +1,6 @@
 {
   "install": "bash scripts/cloud-setup.sh",
-  "start": "sudo service postgresql start",
+  "start": "bash scripts/cloud-pg-start.sh",
   "terminals": [
     {
       "name": "dev",
