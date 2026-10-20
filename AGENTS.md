@@ -14,7 +14,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 
 ## Commands
 
-- `pnpm dev` — http://localhost:3000 (admin: `/admin`)
+- `pnpm dev` — http://localhost:3000, or `PORT` (admin: `/admin`)
 - `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
 - `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)
@@ -83,6 +83,17 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
   Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
 - Never connect to the production (Neon) database from the agent — not via shell, not via Neon/Vercel MCP.
   `scripts/agent-hooks/guard-mcp.mjs` blocks it; don't work around a block, ask the human.
+
+## Parallel checkouts
+
+Several copies of the repo (worktrees, parallel agents) can run side by side on one machine:
+
+- `bash scripts/local-env.sh <suffix>` creates `app_<suffix>` + `app_<suffix>_test` and a free dev-server port, and
+  writes them to `.env.development.local` / `.env.test.local` (idempotent; uses `PGUSER`/`PGPASSWORD`/`PGPORT`).
+- Precedence is shell → `.env.*.local` → `.env`: `pnpm dev` and Playwright read `.env.development.local` first
+  (port: `E2E_PORT ?? PORT ?? 3000`), `pnpm test:int` reads `.env.test.local` first.
+- Docker Postgres on another host port: `POSTGRES_HOST_PORT=5433 docker compose up -d`.
+- Unset an inherited `NODE_ENV=production` (some orchestrators export it): unit tests and `next dev` break under it.
 
 ## Workflow
 

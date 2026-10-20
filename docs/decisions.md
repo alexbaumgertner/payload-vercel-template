@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Dev environments: dev container, cloud bootstrap, parallel checkouts
+
+**Context.** Products from the template are built by several agents at once (cloud agents, a home-server
+orchestrator with one worktree per task) next to the founder's own checkout. The template assumed one checkout per
+machine: port 3000, databases `app` / `app_test`, Postgres on 5432, and a cloud setup that needed working sudo.
+
+**Decision.** (1) `.devcontainer/` with Postgres 18 as a compose service sharing the app's network namespace, so
+`.env.example` works unchanged; agent logins in named volumes shared by all projects. (2) `scripts/cloud-pg-start.sh`
+is the fast, idempotent "make sure Postgres is up" step (SessionStart hook in Claude Code on the web, Cursor
+`start`); it leaves an external Postgres alone and never fails just because sudo cannot elevate. (3) Each checkout
+can get its own databases and port via `scripts/local-env.sh`, written to `.env.development.local` /
+`.env.test.local`, which `pnpm dev` (`scripts/dev.mjs` — Next reads `PORT` only from the shell), Playwright and the
+`int` setup read first. Docker Postgres moves with `POSTGRES_HOST_PORT`.
+
+**Consequences.** `pnpm dev` goes through a 20-line wrapper. Without the `.local` files everything behaves as before
+(port 3000, `app` / `app_test`). The dev container has not been built in CI.
+Revisit if Next starts reading `PORT` from `.env` files, or if parallel agents move to throwaway cloud databases.
+
 ## 2026-10-01 — Agent rules as nested AGENTS.md; Node 24 and Postgres 18 everywhere
 
 **Rules.** Cursor-only `.cursor/rules/*.mdc` became nested `AGENTS.md` files (`src/collections`, `src/features`,

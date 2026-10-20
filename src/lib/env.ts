@@ -22,6 +22,13 @@ const serverEnvSchema = z.object({
   SENTRY_ORG: z.string().min(1).optional(),
   SENTRY_PROJECT: z.string().min(1).optional(),
   SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
+  // Read by tooling, not the app (listed so every variable has one home). See "Parallel
+  // checkouts" in AGENTS.md: scripts/dev.mjs, playwright.config.ts, tests/helpers/int-setup.ts,
+  // docker-compose.yml.
+  PORT: z.string().regex(/^\d+$/).optional(),
+  E2E_PORT: z.string().regex(/^\d+$/).optional(),
+  TEST_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+  POSTGRES_HOST_PORT: z.string().regex(/^\d+$/).optional(),
 })
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>
