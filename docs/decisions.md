@@ -2,6 +2,46 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
+
+**Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the
+last mistake, not a deletion noticed a week later. Both hht-research-platform and sync-trainer added their own copy.
+
+**Options.** (a) `pg_dump` to S3/R2 — Vercel functions have no Postgres binaries, and a bucket plus credentials is one
+more account per product. (b) Data-only dump in Node, encrypted, mailed to the owner — no new service; the mailbox
+keeps history. (c) Stay with Neon only.
+
+**Decision.** (b), with hht-research-platform's design (stronger than sync-trainer's: dump through Payload's pool in
+one `REPEATABLE READ READ ONLY` snapshot; restore refuses non-empty targets instead of deleting first; NOT NULL
+foreign keys order the inserts and nullable ones are filled in a second pass, so cycles work; JSON columns encoded by
+type) plus sync-trainer's dump-version check. `src/lib/backup/` + `GET /api/cron/backup` (cron auth, `maxDuration`
+300, daily in `vercel.json`), gzip + AES-256-GCM with `BACKUP_KEY`, mailed via the mail gate as `operator` mail
+(base64 attachment: the Resend adapter sends JSON). Skips `auth_codes`, `users_sessions`, Payload locks/kv and
+`payload_migrations`. Off unless `BACKUP_EMAIL` + `CRON_SECRET`; once configured every failure (missing key, DB error,
+over 25 MB, mail refused) sends "backup NOT made". `pnpm backup:verify` (no DB) and `pnpm backup:restore` (empty
+target, one transaction, sequences reset, remote needs `ALLOW_REMOTE_DATABASE=1`). An int test restores a real dump
+with the real script into a fresh database and compares row counts.
+
+**Consequences.** Recovery point for Postgres: last night's copy (or inside Neon's window). Copies hold PII (emails),
+encrypted; the key lives only in the password manager. Vercel Blob media are **still not backed up** — Backups stays
+`partial` in the baseline. Restore needs the schema of the backup's date (code from that commit). Past ~25 MB
+encrypted, email no longer fits: the failure email says so.
+Revisit if: the copy nears the cap, users upload files (back up Blob too), or compliance needs storage outside email.
+
+## 2026-10-20 — Raw SQL allowed in `src/lib/backup/` only
+
+**Context.** `AGENTS.md` forbids raw SQL and Drizzle calls: data goes through the Payload Local API. A backup must read
+and write every table, including Payload's internal ones, inside one snapshot/transaction, and reset sequences — none
+of which the Local API offers.
+
+**Decision.** A narrow exception: SQL through `payload.db.pool` (the `pg` pool `@payloadcms/db-postgres` already
+holds) is allowed in `src/lib/backup/` only, and only for the dump/restore mechanics. Identifiers come from
+`information_schema` and are quoted; values are parameters. Tests may use the pool to verify backups. Everything else
+still uses the Local API.
+
+**Consequences.** One folder to review carefully when touching SQL; reviewers treat raw SQL anywhere else as a finding.
+Revisit if: Payload ships a supported export/import.
+
 ## 2026-10-20 — `GET /api/health`: database round-trip, nothing else
 
 **Context.** No endpoint said "the app is up and can reach Postgres". Uptime monitors had to load a page, and
@@ -200,6 +240,9 @@ with — check it before relying on 18-only features.
 Revisit when Vercel adds the next Node LTS.
 
 ## 2026-10-01 — Backups: rely on Neon instant restore, document the Blob gap, drill quarterly
+
+**Superseded on 2026-10-20** by "Daily encrypted database backup by email" — the Postgres part only; the Blob gap
+and the quarterly drill still stand.
 
 **Context.** The template had no restore procedure. Neon keeps a plan-dependent history window; Vercel Blob has no
 native backup and deletes are permanent.

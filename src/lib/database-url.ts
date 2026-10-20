@@ -60,10 +60,18 @@ export function withStrictSsl(connectionString: string): string {
 export function describeDatabase(connectionString: string): string {
   try {
     const url = new URL(connectionString)
-    const fingerprint = createHash('sha256').update(url.hostname).digest('hex').slice(0, 8)
-    return `${url.hostname}${url.pathname} · fingerprint ${fingerprint}`
+    return `${url.hostname}${url.pathname} · fingerprint ${hostFingerprint(connectionString)}`
   } catch {
     return 'unparsable connection string'
+  }
+}
+
+/** First 8 hex chars of sha256(host); `unknown` for an unparsable string. */
+export function hostFingerprint(connectionString: string): string {
+  try {
+    return createHash('sha256').update(new URL(connectionString).hostname).digest('hex').slice(0, 8)
+  } catch {
+    return 'unknown'
   }
 }
 

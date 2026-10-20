@@ -23,6 +23,8 @@
     "migrate": "pnpm payload migrate",
     "seed": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/seed.ts",
     "create-admin": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/create-admin.ts",
+    "backup:verify": "tsx scripts/backup-verify.ts",
+    "backup:restore": "cross-env NODE_OPTIONS=--no-deprecation tsx scripts/backup-restore.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",

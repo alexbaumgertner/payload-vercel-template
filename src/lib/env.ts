@@ -44,6 +44,11 @@ const serverEnvSchema = z.object({
   // Vercel Cron sends it as `Authorization: Bearer …`. Unset: cron routes refuse every request on
   // Vercel and are open only locally. See src/lib/cron-auth.ts.
   CRON_SECRET: z.string().min(16, 'CRON_SECRET must be at least 16 characters').optional(),
+  // Daily encrypted backup by email (src/lib/backup). Off unless BACKUP_EMAIL and CRON_SECRET are set.
+  // BACKUP_KEY (openssl rand -base64 32) is checked when the backup runs, so a bad key produces a
+  // "backup NOT made" email instead of breaking the whole app.
+  BACKUP_EMAIL: z.email().optional(),
+  BACKUP_KEY: z.string().optional(),
   // Read by tooling, not the app (listed so every variable has one home). See "Parallel
   // checkouts" in AGENTS.md: scripts/dev.mjs, playwright.config.ts, tests/helpers/int-setup.ts,
   // docker-compose.yml.

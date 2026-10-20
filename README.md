@@ -93,7 +93,10 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
 8. Create the first user against the production database once, from your machine:
    `DATABASE_URI='<neon-url>' ALLOW_REMOTE_DATABASE=1 pnpm create-admin you@example.com` — then sign in at `/admin`
    with the emailed code. Local tooling refuses remote databases otherwise: `docs/runbooks/production-admin.md`.
-9. Before launch: set the Neon history window and run the restore drill once — `docs/runbooks/backup-restore.md`.
+9. Backups: set `BACKUP_KEY` (`openssl rand -base64 32`, save it in your password manager), `BACKUP_EMAIL` and
+   `CRON_SECRET` for Production; a daily cron then mails an encrypted database copy. Media in Vercel Blob are not
+   included.
+10. Before launch: set the Neon history window and run the restore drill once — `docs/runbooks/backup-restore.md`.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.
 

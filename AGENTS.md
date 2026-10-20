@@ -25,6 +25,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 - `pnpm migrate:create <name>` — before merging schema changes (see "Database")
 - `pnpm seed` — idempotent demo data + `admin@example.com`
 - `pnpm create-admin <email>` — add a user (there is no sign-up or first-user screen)
+- `pnpm backup:verify <file>` / `pnpm backup:restore <file>` — check / restore a mailed backup (human; `docs/runbooks/backup-restore.md`)
 
 ## Layout
 
@@ -49,7 +50,8 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 
 ## Rules
 
-- Data access goes through the Payload Local API in `service.ts` / `queries.ts`. No raw SQL, no Drizzle calls.
+- Data access goes through the Payload Local API in `service.ts` / `queries.ts`. No raw SQL, no Drizzle calls —
+  except `src/lib/backup/` (dump/restore through `payload.db.pool`, see `docs/decisions.md`).
 - Public reads use `overrideAccess: false`. Anything the Local API writes on behalf of a visitor must be validated with Zod first.
 - Mutations from the UI are Server Actions returning a typed state object — not route handlers.
   Wrap them in `monitorAction()`; errors you catch and turn into a message go to `captureServerError()`.
