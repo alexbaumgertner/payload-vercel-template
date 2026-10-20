@@ -146,6 +146,7 @@ Report only P0/P1 findings.
 
 - Payload API reference: `.claude/skills/payload/SKILL.md`
 - Product & customers: `docs/product.md` · Decisions: `docs/decisions.md`
+- Reusable prompts for planning, implementation and review: `docs/prompts/`
 
 <!-- BEGIN:nextjs-agent-rules -->
 
