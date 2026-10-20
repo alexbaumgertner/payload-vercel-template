@@ -2,6 +2,22 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Multi-agent workflow: one story, one branch, one PR
+
+**Context.** Products from the template are built by several agents (Claude Code, Codex, Cursor, a home-server
+orchestrator running unattended sessions) plus the founder. Without shared rules they collide on migrations, guess
+at ambiguous stories, and open PRs too large to review.
+
+**Decision.** `AGENTS.md` (read by every agent) carries the rules: approved stories only; one story = one branch
+= one PR (agent-named branch, or the orchestrator's `agent/<task-id>`); ambiguity → conservative choice plus
+questions in the PR; schema/access stories sequential, UI-only in parallel; PRs under ~400 lines; P0/P1-only review
+rules. `.github/pull_request_template.md` and `docs/prompts/` give every agent the same PR shape and prompts.
+`next dev` writes a `nextjs-agent-rules` block into `AGENTS.md`; it is committed so the tree stays clean.
+
+**Consequences.** Review time goes to access control and migrations, not style. Unattended runs never block on a
+question; the human answers in the PR.
+Revisit if: two agents regularly need the same files at once, or review rules miss a class of incident.
+
 ## 2026-10-20 — Codex parity: `pnpm check` on Stop, guards by hand
 
 **Context.** Codex does not read `CLAUDE.md` or `.claude/settings.json`, so a Codex session had no quality gate and

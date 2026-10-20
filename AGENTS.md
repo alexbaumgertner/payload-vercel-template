@@ -83,6 +83,13 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
   Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
 - Never connect to the production (Neon) database from the agent — not via shell, not via Neon/Vercel MCP.
   `scripts/agent-hooks/guard-mcp.mjs` blocks it; don't work around a block, ask the human.
+- **Schema-push trap.** Push applies only changes it can make silently; anything else becomes an interactive
+  question that nobody answers in a non-interactive run, so the run hangs. Seen in practice: removing a field
+  (confirm dropping columns), adding a value to a select/enum (`ALTER TYPE … ADD VALUE`), dropping `NOT NULL`
+  (making a required field optional). Symptoms: many test files fail at once, or `payload migrate` / the dev server
+  sits silent. Fix: apply the change by hand with `psql` against the **local** dev database (check with
+  `\d <table>`), or drop and recreate the local database and let push rebuild it. Production is unaffected — it
+  only changes through committed migrations, which ask no questions.
 
 ## Agent hooks
 
@@ -111,7 +118,41 @@ Several copies of the repo (worktrees, parallel agents) can run side by side on 
 3. Verify: `pnpm check`, `pnpm test:int`, `pnpm test:e2e`; check UI in the browser (Chrome DevTools MCP), then `reviewer`.
 4. Conventional commits (`feat:`, `fix:`, `chore:` …), one logical change per commit; update `docs/baseline.md`.
 
+## Multi-agent workflow (Claude Code · Codex · Cursor · orchestrator · human)
+
+- One story = one branch = one PR. Branch: `<agent>/<story-id>-<slug>` (`codex/006-pricing-page`,
+  `claude/005-team-model`), or the branch an orchestrator already created for the task (`agent/<task-id>`) — keep it.
+- Work only on a story with `status: approved`. If the story or task is ambiguous, implement nothing that guesses:
+  take the conservative option or stop, and write the questions in the PR description.
+- Stories that change collections or access control run **sequentially** (they produce migrations); UI-only stories
+  may run in parallel.
+- Keep a PR under ~400 changed lines (excluding `pnpm-lock.yaml`, `payload-types.ts`, migrations); otherwise propose a split.
+- Cloud agents: `bash scripts/cloud-setup.sh` is idempotent — re-run it if Postgres is not running. Several agents on
+  one machine: see "Parallel checkouts".
+- PR description: story id, which criteria are covered by which tests, anything left for the human (migration to
+  review, env var to add in Vercel), open questions. Template: `.github/pull_request_template.md`.
+
+## Code Review Rules
+
+Report only P0/P1 findings.
+
+- P0: any change that could expose non-public data (drafts, other users' records, emails) to anonymous users.
+- P1: a public read or other Local API call that bypasses access control (public reads need `overrideAccess: false`).
+- P1: a change in `src/collections/` or `src/access/` without a matching migration in `src/migrations/`.
+- P1: a Server Action that skips Zod validation, or returns sentences instead of error codes.
+- P1: UI strings outside `messages/en.json` and `messages/ru.json`, or added to only one locale.
+
 ## Deeper context
 
 - Payload API reference: `.claude/skills/payload/SKILL.md`
 - Product & customers: `docs/product.md` · Decisions: `docs/decisions.md`
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
