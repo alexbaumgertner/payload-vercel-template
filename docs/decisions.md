@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Mail gate: only login codes leave previews and the sandbox sender
+
+**Context.** Previews usually share the production Resend key and sender and run on a branch of the production
+database, so an invite or notification triggered on a preview URL would reach real people from the production domain.
+The `@resend.dev` sandbox sender delivers only to the Resend account owner; other mail from it is dropped silently.
+The template sends only login codes today; products add the rest.
+
+**Decision.** `src/lib/mail-gate.ts` (from hht-research-platform `mailGate.ts`): `sendMail(payload, kind, message)` is
+the one door. `login-code` always passes (signing in to a preview must work); `operator` (backup reports to
+`BACKUP_EMAIL`) is refused on previews but allowed from the sandbox, which delivers to the owner; `general` is refused
+on previews and from the sandbox. Refusals and a missing `RESEND_API_KEY` come back as a result, not an exception.
+`EMAIL_FROM_ADDRESS` accepts `Name <address>`; the name replaces the site name as the sender name.
+`src/features/AGENTS.md` tells agents to use the gate for any new mail.
+
+**Consequences.** Testing invite mail end-to-end needs production or a local run with a verified sender. A product
+whose previews have their own Resend key and sender can relax the preview rule there.
+Revisit if: previews get separate mail credentials, or a product needs preview mail to a fixed test inbox.
+
 ## 2026-10-20 — Cron routes fail closed without `CRON_SECRET`
 
 **Context.** Vercel Cron calls routes with `Authorization: Bearer $CRON_SECRET`. The common pattern

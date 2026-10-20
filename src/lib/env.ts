@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { selectDatabaseUrl } from './database-url'
+import { parseSender } from './mail-gate'
 
 const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ })
 
@@ -17,7 +18,13 @@ const serverEnvSchema = z.object({
   PAYLOAD_SECRET: z.string().min(16, 'PAYLOAD_SECRET must be at least 16 characters'),
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
-  EMAIL_FROM_ADDRESS: z.email().default('onboarding@resend.dev'),
+  // `login@domain` or `Name <login@domain>`; the name defaults to the site name.
+  EMAIL_FROM_ADDRESS: z
+    .string()
+    .refine((value) => z.email().safeParse(parseSender(value).address).success, {
+      message: 'EMAIL_FROM_ADDRESS must be an email or `Name <email>`',
+    })
+    .default('onboarding@resend.dev'),
   NEXT_PUBLIC_SITE_URL: z.url().default('http://localhost:3000'),
   // Dev-only schema push (never in production). Off for extra processes sharing a DB
   // with the dev server, e.g. Playwright workers: concurrent pushes can hang on a prompt.

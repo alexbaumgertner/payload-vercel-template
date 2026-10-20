@@ -57,3 +57,20 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ PAYLOAD_SECRET: base.PAYLOAD_SECRET })).toThrow(/DATABASE_URL/)
   })
 })
+
+describe('EMAIL_FROM_ADDRESS', () => {
+  it('accepts a bare address and the `Name <address>` form', () => {
+    expect(
+      parseServerEnv({ ...base, EMAIL_FROM_ADDRESS: 'a@acme.example' }).EMAIL_FROM_ADDRESS,
+    ).toBe('a@acme.example')
+    expect(
+      parseServerEnv({ ...base, EMAIL_FROM_ADDRESS: 'Acme <a@acme.example>' }).EMAIL_FROM_ADDRESS,
+    ).toBe('Acme <a@acme.example>')
+  })
+
+  it('rejects something that is not an address', () => {
+    expect(() => parseServerEnv({ ...base, EMAIL_FROM_ADDRESS: 'Acme <nope>' })).toThrow(
+      /EMAIL_FROM_ADDRESS/,
+    )
+  })
+})

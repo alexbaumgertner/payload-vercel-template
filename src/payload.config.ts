@@ -16,6 +16,7 @@ import { siteConfig } from './config/site'
 import { defaultLocale, localeLabels, locales } from './i18n/locales'
 import { mediaPrefix } from './lib/blob-prefix'
 import { announceDatabase } from './lib/database-url'
+import { parseSender } from './lib/mail-gate'
 import { assertDevDatabaseIsLocal, shouldPushSchema } from './lib/database-target'
 import { env } from './lib/env'
 
@@ -27,6 +28,8 @@ announceDatabase()
 // Outside Vercel only a local database, unless ALLOW_REMOTE_DATABASE=1 (src/lib/database-target.ts).
 const databaseTarget = { ...process.env, DATABASE_URL: env.DATABASE_URL }
 assertDevDatabaseIsLocal(databaseTarget)
+
+const sender = parseSender(env.EMAIL_FROM_ADDRESS)
 
 export default buildConfig({
   serverURL: env.NEXT_PUBLIC_SITE_URL,
@@ -51,8 +54,8 @@ export default buildConfig({
   email: env.RESEND_API_KEY
     ? resendAdapter({
         apiKey: env.RESEND_API_KEY,
-        defaultFromAddress: env.EMAIL_FROM_ADDRESS,
-        defaultFromName: siteConfig.name,
+        defaultFromAddress: sender.address,
+        defaultFromName: sender.name ?? siteConfig.name,
       })
     : undefined,
   secret: env.PAYLOAD_SECRET,
