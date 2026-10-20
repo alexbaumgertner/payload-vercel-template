@@ -12,15 +12,36 @@
       "Bash(pnpm generate:importmap)",
       "Bash(git status)",
       "Bash(git diff:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Read(.env.development.local)",
+      "Edit(.env.development.local)",
+      "Write(.env.development.local)",
+      "Read(.env.test.local)",
+      "Edit(.env.test.local)",
+      "Write(.env.test.local)"
     ],
     "deny": [
-      // "Read(./.env)",
-      // "Read(./.env.*)",
-      // "Bash(vercel --prod:*)"
+      "Read(**/.env.production*)",
+      "Edit(**/.env.production*)",
+      "Write(**/.env.production*)",
+      "Read(**/.vercel/**)",
+      "Edit(**/.vercel/**)",
+      "Write(**/.vercel/**)"
     ]
   },
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ \"$CLAUDE_CODE_REMOTE\" = \"true\" ] && bash \"$CLAUDE_PROJECT_DIR/scripts/cloud-pg-start.sh\" >>/tmp/cloud-setup.log 2>&1 || true",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

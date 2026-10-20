@@ -2,6 +2,70 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Agent file access: local env files yes, production env and `.vercel/` no
+
+**Context.** `CLAUDE.md` said reading `.env` / `.env.*` was denied, but the `deny` list in `.claude/settings.json` was
+commented out, so nothing was denied. Parallel checkouts now keep their database URLs and port in
+`.env.development.local` / `.env.test.local`, which agents need to create and fix.
+
+**Decision.** Allow Read/Edit/Write of `.env.development.local` and `.env.test.local`; deny Read/Edit/Write of
+`.env.production*` and `.vercel/**` (where `vercel pull` writes production settings and secrets). `.env` stays
+unlisted, so Claude Code asks. The shell guard blocks `vercel pull` / `vercel env pull`, pushes to `main`, and
+rolls back migrations only on a local scratch database named in the same command segment (a second segment
+cannot ride along). Settings, `CLAUDE.md` and `AGENTS.md` state the same rule; a unit test pins the settings.
+
+**Consequences.** Local secrets (`PAYLOAD_SECRET`, optional API keys) in the `.local` files are readable by agents —
+keep production values out of them. Codex has no file-permission layer; `AGENTS.md` states the rule.
+Revisit if production secrets ever need to live in a local file, or Claude Code changes its path-rule syntax.
+
+## 2026-10-20 — Multi-agent workflow: one story, one branch, one PR
+
+**Context.** Products from the template are built by several agents (Claude Code, Codex, Cursor, a home-server
+orchestrator running unattended sessions) plus the founder. Without shared rules they collide on migrations, guess
+at ambiguous stories, and open PRs too large to review.
+
+**Decision.** `AGENTS.md` (read by every agent) carries the rules: approved stories only; one story = one branch
+= one PR (agent-named branch, or the orchestrator's `agent/<task-id>`); ambiguity → conservative choice plus
+questions in the PR; schema/access stories sequential, UI-only in parallel; PRs under ~400 lines; P0/P1-only review
+rules. `.github/pull_request_template.md` and `docs/prompts/` give every agent the same PR shape and prompts.
+`next dev` writes a `nextjs-agent-rules` block into `AGENTS.md`; it is committed so the tree stays clean.
+
+**Consequences.** Review time goes to access control and migrations, not style. Unattended runs never block on a
+question; the human answers in the PR.
+Revisit if: two agents regularly need the same files at once, or review rules miss a class of incident.
+
+## 2026-10-20 — Codex parity: `pnpm check` on Stop, guards by hand
+
+**Context.** Codex does not read `CLAUDE.md` or `.claude/settings.json`, so a Codex session had no quality gate and
+no guards. Codex now supports `<repo>/.codex/hooks.json` (same event names as Claude Code; Stop accepts JSON or
+nothing on stdout, exit 2 + stderr continues the turn).
+
+**Decision.** `.codex/hooks.json` runs `scripts/agent-hooks/stop-check.mjs` on Stop: `pnpm check`, output on stderr,
+exit 2 on failure, one retry (`stop_hook_active`) so a session cannot loop forever. Shell/MCP guards are not ported:
+`AGENTS.md` (which Codex reads) states that they do not run there and the rules apply by hand.
+
+**Consequences.** Project hooks load only after the user trusts `.codex/` and approves the hook in `/hooks`. Whether
+hooks run in Codex cloud is undocumented — assume they do not.
+Revisit if Codex documents PreToolUse/shell hooks that could reuse `policy.mjs`.
+
+## 2026-10-20 — Dev environments: dev container, cloud bootstrap, parallel checkouts
+
+**Context.** Products from the template are built by several agents at once (cloud agents, a home-server
+orchestrator with one worktree per task) next to the founder's own checkout. The template assumed one checkout per
+machine: port 3000, databases `app` / `app_test`, Postgres on 5432, and a cloud setup that needed working sudo.
+
+**Decision.** (1) `.devcontainer/` with Postgres 18 as a compose service sharing the app's network namespace, so
+`.env.example` works unchanged; agent logins in named volumes shared by all projects. (2) `scripts/cloud-pg-start.sh`
+is the fast, idempotent "make sure Postgres is up" step (SessionStart hook in Claude Code on the web, Cursor
+`start`); it leaves an external Postgres alone and never fails just because sudo cannot elevate. (3) Each checkout
+can get its own databases and port via `scripts/local-env.sh`, written to `.env.development.local` /
+`.env.test.local`, which `pnpm dev` (`scripts/dev.mjs` — Next reads `PORT` only from the shell), Playwright and the
+`int` setup read first. Docker Postgres moves with `POSTGRES_HOST_PORT`.
+
+**Consequences.** `pnpm dev` goes through a 20-line wrapper. Without the `.local` files everything behaves as before
+(port 3000, `app` / `app_test`). The dev container has not been built in CI.
+Revisit if Next starts reading `PORT` from `.env` files, or if parallel agents move to throwaway cloud databases.
+
 ## 2026-10-01 — Agent rules as nested AGENTS.md; Node 24 and Postgres 18 everywhere
 
 **Rules.** Cursor-only `.cursor/rules/*.mdc` became nested `AGENTS.md` files (`src/collections`, `src/features`,

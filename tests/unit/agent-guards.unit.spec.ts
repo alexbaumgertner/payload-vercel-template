@@ -1,5 +1,8 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process'
+import { chmodSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
@@ -25,11 +28,45 @@ describe('shell guard', () => {
     ['git push --force origin main', 'force push'],
     ['git push -f', 'short force flag'],
     ['git push origin +main', 'force push via refspec'],
+    ['git push origin feature/x -f', 'short force flag after the refspec'],
+    ['git push -u origin main', 'push to main'],
+    ['git push origin HEAD:main', 'push HEAD to main'],
+    ['git push origin refs/heads/main', 'push to main by full ref'],
+    ['git push --force-with-lease origin main', 'lease-protected push to main'],
+    ['git push origin master', 'push to master'],
     ['git reset --hard origin/main', 'hard reset to remote'],
     ['psql -c "DROP TABLE users"', 'drop table'],
     ['psql "$DATABASE_URL" -c "truncate waitlist_signups"', 'truncate'],
     ['pnpm payload migrate:fresh', 'migrate:fresh'],
     ['pnpm payload migrate:down', 'migrate:down'],
+    [
+      'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app pnpm payload migrate:down',
+      'migrate:down on the dev database',
+    ],
+    [
+      'DATABASE_URL=postgresql://app:app@db.example.com:5432/app_test pnpm payload migrate:down',
+      'migrate:down on a remote host',
+    ],
+    [
+      'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test pnpm payload migrate:fresh && pnpm payload migrate:fresh',
+      'a second, unscoped migrate:fresh after &&',
+    ],
+    [
+      'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test pnpm payload migrate:down; pnpm payload migrate:down',
+      'a second, unscoped migrate:down after ;',
+    ],
+    [
+      'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test pnpm payload migrate:down\npnpm payload migrate:down',
+      'a second migrate:down on a new line',
+    ],
+    [
+      'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test pnpm payload migrate:down $(pnpm payload migrate:down)',
+      'a second migrate:down in a subshell',
+    ],
+    [
+      'export DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test; pnpm payload migrate:fresh',
+      'exported URL does not scope the next command',
+    ],
     ['psql postgresql://u:p@ep-cool-123-pooler.eu-central-1.aws.neon.tech/neondb', 'Neon URL'],
     ['DATABASE_URL=postgres://u:p@ep-x.neon.tech/db pnpm seed', 'Neon URL in env prefix'],
     ['neonctl branches delete main', 'Neon CLI'],
@@ -39,6 +76,8 @@ describe('shell guard', () => {
     ['vercel promote dpl_123', 'promote'],
     ['vercel rollback', 'rollback'],
     ['pnpm dlx vercel env pull .env', 'env pull'],
+    ['vercel env pull .env.local', 'env pull into a local file'],
+    ['vercel pull --yes', 'pull project settings and env'],
     ['vercel env add DATABASE_URL production', 'env add'],
   ])('blocks %s (%s)', (command) => {
     expect(checkShellCommand(command).allowed).toBe(false)
@@ -49,10 +88,16 @@ describe('shell guard', () => {
     'pnpm test:int',
     'rm -rf node_modules .next',
     'rm -rf ./media/*',
-    'git push -u origin main',
+    'git push -u origin agent/abc123',
+    'git push origin feature/main-page',
+    'git push origin main-fix',
     'git push --force-with-lease origin feature/x',
     'git reset --hard HEAD~1',
     'pnpm migrate:create add-tags',
+    'DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_test pnpm payload migrate:down',
+    'DATABASE_URL=postgresql://app:app@localhost:5433/app_test pnpm payload migrate:fresh',
+    'DATABASE_URL=postgresql://agent@127.0.0.1:5432/app_wt1_test pnpm payload migrate:fresh',
+    'DATABASE_URL=postgresql://app:app@127.0.0.1:5433/app_migr_021 PAYLOAD_DB_PUSH=false pnpm payload migrate:down',
     'psql postgresql://app:app@127.0.0.1:5432/app -c "select 1"',
     'vercel --help',
     'vercel deploy',
@@ -178,6 +223,40 @@ describe('hook scripts', () => {
     expect(JSON.parse(result.stdout)).toMatchObject({ permission: 'deny' })
   })
 
+  describe('Codex Stop hook (stop-check.mjs)', () => {
+    // A fake `pnpm` first on PATH stands in for `pnpm check`.
+    function withFakePnpm(exitCode: number) {
+      const dir = mkdtempSync(path.join(tmpdir(), 'fake-pnpm-'))
+      const bin = path.join(dir, 'pnpm')
+      writeFileSync(bin, `#!/bin/sh\necho "check output on stdout"\nexit ${exitCode}\n`)
+      chmodSync(bin, 0o755)
+      return { PATH: `${dir}${path.delimiter}${process.env.PATH}` }
+    }
+
+    it('lets Codex finish when pnpm check passes, with nothing on stdout', () => {
+      const result = runHook('stop-check.mjs', 'claude', {}, withFakePnpm(0))
+      expect(result).toMatchObject({ status: 0, stdout: '' })
+    })
+
+    it('makes Codex continue (exit 2, reason on stderr) when pnpm check fails', () => {
+      const result = runHook('stop-check.mjs', 'claude', {}, withFakePnpm(1))
+      expect(result.status).toBe(2)
+      expect(result.stdout).toBe('')
+      expect(result.stderr).toContain('pnpm check failed')
+      expect(result.stderr).toContain('check output on stdout')
+    })
+
+    it('does not loop: a turn already continued by Stop may finish', () => {
+      const result = runHook(
+        'stop-check.mjs',
+        'claude',
+        { stop_hook_active: true },
+        withFakePnpm(1),
+      )
+      expect(result).toMatchObject({ status: 0, stdout: '' })
+    })
+  })
+
   it('Claude MCP hook parses mcp__server__tool names', () => {
     const blocked = runHook('guard-mcp.mjs', 'claude', {
       tool_name: 'mcp__vercel__deploy_to_vercel',
@@ -193,4 +272,29 @@ describe('hook scripts', () => {
     )
     expect(allowed.status).toBe(0)
   })
+})
+
+describe('Claude Code file permissions (.claude/settings.json)', () => {
+  const settings = JSON.parse(
+    readFileSync(new URL('../../.claude/settings.json', import.meta.url), 'utf8'),
+  ) as { permissions: { allow: string[]; deny: string[] } }
+
+  it.each(['Read', 'Edit', 'Write'])('denies %s of production env files and .vercel/', (tool) => {
+    expect(settings.permissions.deny).toEqual(
+      expect.arrayContaining([`${tool}(**/.env.production*)`, `${tool}(**/.vercel/**)`]),
+    )
+  })
+
+  it.each(['Read', 'Edit', 'Write'])(
+    'allows %s of the per-checkout local env files only',
+    (tool) => {
+      expect(settings.permissions.allow).toEqual(
+        expect.arrayContaining([`${tool}(.env.development.local)`, `${tool}(.env.test.local)`]),
+      )
+      const envRules = settings.permissions.allow.filter((rule) => rule.includes('.env'))
+      expect(envRules.every((rule) => /\(\.env\.(development|test)\.local\)$/.test(rule))).toBe(
+        true,
+      )
+    },
+  )
 })

@@ -1,0 +1,17 @@
+{
+  "description": "Mirror of the Claude Code / Cursor Stop hooks: do not finish while pnpm check fails.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"$(git rev-parse --show-toplevel)\" && node scripts/agent-hooks/stop-check.mjs",
+            "timeout": 600,
+            "statusMessage": "pnpm check"
+          }
+        ]
+      }
+    ]
+  }
+}

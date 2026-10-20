@@ -27,10 +27,11 @@ pnpm vitest run --project int tests/int/waitlist.int.spec.ts -t "duplicate"
 pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 ```
 
-- `int` needs local Postgres (`docker compose up -d` creates `app` + `app_test`); `tests/helpers/int-setup.ts` forces
-  `DATABASE_URL` to `TEST_DATABASE_URL` / `app_test`. Files run serially (`fileParallelism: false`).
-- `e2e` reuses a dev server already on :3000 (else starts one). Workers run with `PAYLOAD_DB_PUSH=false`; only the
-  dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`), seed with
+- `int` needs local Postgres (`docker compose up -d` creates `app` + `app_test`); `tests/helpers/int-setup.ts` loads
+  `.env.test.local` then `.env` and forces `DATABASE_URL` to `TEST_DATABASE_URL` / `app_test`. Files run serially
+  (`fileParallelism: false`).
+- `e2e` reuses a dev server already on `E2E_PORT ?? PORT ?? 3000` (else starts one). Workers run with
+  `PAYLOAD_DB_PUSH=false`; only the dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`), seed with
   `seedUser.ts` / `seedChangelog.ts`.
 - `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` — `vi.mock` the action.
 
@@ -39,7 +40,9 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 - **Hooks:** `PreToolUse` Bash → `guard-shell.mjs`; `mcp__.*` → `guard-mcp.mjs` (allow-list in
   `scripts/agent-hooks/policy.mjs`); `PostToolUse` edits → prettier; `Stop` → `pnpm typecheck` if TS files changed,
   and blocks finishing until it passes. A blocked command is intentional — ask the human, don't rephrase around it.
-- **Denied:** reading `.env` / `.env.*` (use `.env.example` and `src/lib/env.ts`), Neon/Vercel write and secret tools.
+- **Files:** `.env.development.local` / `.env.test.local` may be read and written (per-checkout DB and port, see
+  "Parallel checkouts"). **Denied:** `.env.production*` and `.vercel/**` (read, edit, write). `.env` asks first — use
+  `.env.example` and `src/lib/env.ts` instead. The MCP guard denies Neon/Vercel write and secret tools.
 - **Skills:** `/feature` (story → approval → failing tests → code), `/new-collection`, `/ship` (check, types,
   migration reminder, commit, push); auto-loaded `payload` and `db-migrations`. Subagent: `reviewer` (read-only).
 - Changing guard rules means updating `tests/unit/agent-guards.unit.spec.ts`.

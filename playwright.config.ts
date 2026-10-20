@@ -1,11 +1,15 @@
 import { defineConfig, devices } from '@playwright/test'
-import 'dotenv/config'
+import { config as loadEnv } from 'dotenv'
+
+// Workers and the dev server share one database and port: same files Next loads in
+// development (dotenv never overrides a set variable, so the shell, then the first file wins).
+loadEnv({ path: ['.env.development.local', '.env'], quiet: true })
 
 // Test workers open their own Payload connections (helpers seed data). Only the
 // dev server may push the schema; concurrent pushes can block on an interactive prompt.
 process.env.PAYLOAD_DB_PUSH = 'false'
 
-const PORT = Number(process.env.E2E_PORT ?? 3000)
+const PORT = Number(process.env.E2E_PORT ?? process.env.PORT ?? 3000)
 const baseURL = `http://localhost:${PORT}`
 
 export default defineConfig({
