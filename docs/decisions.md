@@ -5,16 +5,16 @@ Short log of choices that shape the codebase. Newest first. One entry = what we 
 ## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
 
 **Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the
-last mistake, not a deletion noticed a week later. Both hht-research-platform and sync-trainer added their own copy.
+last mistake, not a deletion noticed a week later. Two sibling products had already added their own copy (sources: `docs/template-changes.md`).
 
 **Options.** (a) `pg_dump` to S3/R2 — Vercel functions have no Postgres binaries, and a bucket plus credentials is one
 more account per product. (b) Data-only dump in Node, encrypted, mailed to the owner — no new service; the mailbox
 keeps history. (c) Stay with Neon only.
 
-**Decision.** (b), with hht-research-platform's design (stronger than sync-trainer's: dump through Payload's pool in
+**Decision.** (b), with the stronger of the two sibling designs ( dump through Payload's pool in
 one `REPEATABLE READ READ ONLY` snapshot; restore refuses non-empty targets instead of deleting first; NOT NULL
 foreign keys order the inserts and nullable ones are filled in a second pass, so cycles work; JSON columns encoded by
-type) plus sync-trainer's dump-version check. `src/lib/backup/` + `GET /api/cron/backup` (cron auth, `maxDuration`
+type) plus the other one's dump-version check. `src/lib/backup/` + `GET /api/cron/backup` (cron auth, `maxDuration`
 300, daily in `vercel.json`), gzip + AES-256-GCM with `BACKUP_KEY`, mailed via the mail gate as `operator` mail
 (base64 attachment: the Resend adapter sends JSON). Skips `auth_codes`, `users_sessions`, Payload locks/kv and
 `payload_migrations`. Off unless `BACKUP_EMAIL` + `CRON_SECRET`; once configured every failure (missing key, DB error,
@@ -45,8 +45,8 @@ Revisit if: Payload ships a supported export/import.
 ## 2026-10-20 — `GET /api/health`: database round-trip, nothing else
 
 **Context.** No endpoint said "the app is up and can reach Postgres". Uptime monitors had to load a page, and
-Playwright's `webServer.url` waited on `/`, which answers before Payload is initialised (murad-portal had to point it
-at `/changelog` to force Payload's first-request schema push).
+Playwright's `webServer.url` waited on `/`, which answers before Payload is initialised (a product built from the template had to
+point it at `/changelog` to force Payload's first-request schema push).
 
 **Decision.** `src/app/api/health/route.ts`, a plain Next route (the static segment wins over Payload's
 `api/[...slug]`; `src/proxy.ts` skips `/api`; e2e checks both). Body `{ ok, db: 'up'|'down', commit, checkedAt }`
@@ -54,7 +54,7 @@ at `/changelog` to force Payload's first-request schema push).
 is `payload.count({ collection: 'users' })` with a 5 s timeout — a COUNT returns no documents (Payload's
 `find({ limit: 0 })` would mean "no limit", so it is not used). No counts or hosts in the response. Failures go to
 `captureServerError`. `playwright.config.ts` waits on it; Playwright keeps polling while it answers 503.
-Builder pattern from hht-research-platform `health.ts`.
+Builder pattern from a sibling product.
 
 **Consequences.** Each call is one tiny query; a monitor polling every minute keeps a Neon compute awake (scale-to-zero
 won't kick in) — poll less often if that matters.
@@ -67,7 +67,7 @@ database, so an invite or notification triggered on a preview URL would reach re
 The `@resend.dev` sandbox sender delivers only to the Resend account owner; other mail from it is dropped silently.
 The template sends only login codes today; products add the rest.
 
-**Decision.** `src/lib/mail-gate.ts` (from hht-research-platform `mailGate.ts`): `sendMail(payload, kind, message)` is
+**Decision.** `src/lib/mail-gate.ts` (ported from a sibling product): `sendMail(payload, kind, message)` is
 the one door. `login-code` always passes (signing in to a preview must work); `operator` (backup reports to
 `BACKUP_EMAIL`) is refused on previews but allowed from the sandbox, which delivers to the owner; `general` is refused
 on previews and from the sandbox. Refusals and a missing `RESEND_API_KEY` come back as a result, not an exception.
@@ -82,9 +82,9 @@ Revisit if: previews get separate mail credentials, or a product needs preview m
 
 **Context.** Vercel Cron calls routes with `Authorization: Bearer $CRON_SECRET`. The common pattern
 `!secret || header === …` opens the route whenever the secret is missing — on previews, which usually don't get the
-variable and whose database is a branch of production. sync-trainer had exactly that bug in its backup route.
+variable and whose database is a branch of production. A sibling product had exactly that bug in its backup route.
 
-**Decision.** `src/lib/cron-auth.ts` (from hht-research-platform / sync-trainer): with a secret, the header must match
+**Decision.** `src/lib/cron-auth.ts` (ported from two sibling products): with a secret, the header must match
 exactly, compared as SHA-256 digests with `timingSafeEqual` (constant time, any length); without one, allowed only when
 `VERCEL_ENV` is unset (local runs). Env is a parameter, so every branch is unit-tested. `CRON_SECRET` must be ≥ 16
 characters (`env.ts`).
@@ -106,8 +106,8 @@ don't exist.
 every non-production Vercel environment (`preview/`, and `development/` for `vercel dev`), none for production (stored
 URLs keep resolving) and none locally (files go to `./media`). Reads and deletes use the `prefix` stored on each row.
 `alwaysInsertFields: true` keeps the `media` schema identical with and without a token; migration
-`20261020_095132_media_blob_fields` adds `prefix` (default `''`) and `_objectkey`. Pattern from sync-trainer
-(`artifact-path.ts`); there it was a hand-built path, here the plugin does it.
+`20261020_095132_media_blob_fields` adds `prefix` (default `''`) and `_objectkey`. Pattern from a sibling product,
+where it was a hand-built path; here the plugin does it.
 
 **Consequences.** Preview uploads accumulate under `preview/` and are never cleaned up automatically — delete the
 folder from the Blob store now and then. Rows a preview inherits from production keep `prefix = ''` and still show
@@ -121,11 +121,11 @@ production secrets into `.env*.local`) followed by `pnpm dev` would push the dev
 drops columns it doesn't know. `pnpm seed` would write a demo admin into production. The decision on MCP guards
 already noted "a production `DATABASE_URL` in your local `.env` would be used by `pnpm seed` and the dev server".
 
-**Decision.** `src/lib/database-target.ts` (from hht-research-platform, plus murad-portal's seed guard), with the
+**Decision.** `src/lib/database-target.ts` (ported from a sibling product, plus the seed guard of a product built from the template), with the
 resolved URL:
 
 - Push only when requested **and** the host is local (`localhost`, `127.0.0.1`, `::1`, `postgres`,
-  `host.docker.internal`) **and** `NODE_ENV !== 'production'`. No remote-push opt-in (HHT had one for deploy builds;
+  `host.docker.internal`) **and** `NODE_ENV !== 'production'`. No remote-push opt-in (the source had one for deploy builds;
   here production changes through migrations only).
 - `payload.config.ts` refuses a remote database outside Vercel (`VERCEL`/`VERCEL_ENV` unset) unless
   `ALLOW_REMOTE_DATABASE=1`. `NODE_ENV=production` alone does not exempt: orchestrators export it globally.
@@ -156,7 +156,7 @@ per process `[db] using <SOURCE>: <host>/<db> · fingerprint <sha256(host)[:8]>`
 hosts that look like secrets; the fingerprint survives, so production and preview logs can be compared. `env.ts`
 resolves `DATABASE_URL` through it (the rest of the code reads only `env.DATABASE_URL`) and drops empty values
 before validation. `int-setup.ts` deletes `DATABASE_URI` / `POSTGRES_URL` so they can't beat the test database.
-Ported from sync-trainer (selection, TLS) and murad-portal (`KEY=` fix).
+Ported from sibling products (selection and TLS; the `KEY=` fix).
 
 **Consequences.** A `DATABASE_URI` in a local env file wins over `DATABASE_URL` — the startup log line shows which.
 Revisit if `pg` changes `sslmode` semantics again or Neon's integration changes variable names.
@@ -482,7 +482,7 @@ Revisit if: Vercel ships a read-only/scoped MCP mode, or Cursor runs MCP hooks i
 
 ## Passwordless login with email one-time codes
 
-Ported from hht-research-platform. No passwords to leak, reset or brute-force; admins are few and
+Ported from a sibling product. No passwords to leak, reset or brute-force; admins are few and
 already live in their inbox. Codes are HMAC-hashed, expire in 10 minutes, burn after 5 wrong tries;
 rate limits (3 per email / 15 min, 20 per IP / hour) are counted in Postgres because serverless
 instances share no memory. Session = our own signed cookie read by a Payload auth strategy, since
