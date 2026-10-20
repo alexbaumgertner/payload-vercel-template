@@ -85,10 +85,23 @@ describe('backup → restore round trip', () => {
       connectionString: string
     }) => Payload['db']['pool']
     restorePool = new PoolClass({ connectionString: restoreUrl })
+    // `end()` can resolve before Postgres has closed the socket; if the forced drop below kills
+    // such a connection (57P01), pg emits an `error` event — without a listener that is an
+    // uncaught exception that fails the whole run.
+    restorePool.on('error', () => undefined)
   }, 120_000)
 
   afterAll(async () => {
     await restorePool?.end()
+    // Let the scratch database's connections close on their own before dropping it.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const { rows } = await payload.db.pool.query<{ n: number }>(
+        'SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = $1',
+        [restoreName],
+      )
+      if ((rows[0]?.n ?? 0) === 0) break
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
     await payload.db.pool.query(`DROP DATABASE IF EXISTS "${restoreName}" WITH (FORCE)`)
     rmSync(workDir, { recursive: true, force: true })
     await payload.delete({
