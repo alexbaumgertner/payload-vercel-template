@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — `GET /api/health`: database round-trip, nothing else
+
+**Context.** No endpoint said "the app is up and can reach Postgres". Uptime monitors had to load a page, and
+Playwright's `webServer.url` waited on `/`, which answers before Payload is initialised (murad-portal had to point it
+at `/changelog` to force Payload's first-request schema push).
+
+**Decision.** `src/app/api/health/route.ts`, a plain Next route (the static segment wins over Payload's
+`api/[...slug]`; `src/proxy.ts` skips `/api`; e2e checks both). Body `{ ok, db: 'up'|'down', commit, checkedAt }`
+(`commit` = first 7 of `VERCEL_GIT_COMMIT_SHA`, else `local`), `Cache-Control: no-store`, 200/503. The database check
+is `payload.count({ collection: 'users' })` with a 5 s timeout — a COUNT returns no documents (Payload's
+`find({ limit: 0 })` would mean "no limit", so it is not used). No counts or hosts in the response. Failures go to
+`captureServerError`. `playwright.config.ts` waits on it; Playwright keeps polling while it answers 503.
+Builder pattern from hht-research-platform `health.ts`.
+
+**Consequences.** Each call is one tiny query; a monitor polling every minute keeps a Neon compute awake (scale-to-zero
+won't kick in) — poll less often if that matters.
+Revisit if: products need deeper checks (queues, third parties) — add them as separate fields, keep `ok` meaning "serving".
+
 ## 2026-10-20 — Mail gate: only login codes leave previews and the sandbox sender
 
 **Context.** Previews usually share the production Resend key and sender and run on a branch of the production

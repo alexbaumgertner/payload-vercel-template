@@ -12,6 +12,7 @@ What every product built from this template gets out of the box. Update this tab
 | Analytics          | done    | Typed `track()` catalog, no-op by default; Vercel adapter via `ANALYTICS_PROVIDER`; DNT/GPC respected, no PII        |
 | CI                 | done    | GitHub Actions: format, check, int (Postgres 18), browser, e2e; no secrets; artifacts on failure                     |
 | Dev environments   | done    | Dev container (Postgres 18, Claude, Codex); `cloud-pg-start.sh` for cloud agents; `local-env.sh` per checkout        |
+| Operations         | done    | `GET /api/health` (DB round-trip, 200/503); cron auth fails closed; non-login mail gated on previews and sandbox     |
 | Dependency updates | done    | Dependabot weekly; Payload / React / Next / dev-tools grouped; majors as separate PRs                                |
 
 Features are specified in `docs/stories/` — each acceptance criterion maps to a named test.
