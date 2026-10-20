@@ -14,6 +14,7 @@ import { Users } from './collections/Users'
 import { WaitlistSignups } from './collections/WaitlistSignups'
 import { siteConfig } from './config/site'
 import { defaultLocale, localeLabels, locales } from './i18n/locales'
+import { mediaPrefix } from './lib/blob-prefix'
 import { announceDatabase } from './lib/database-url'
 import { assertDevDatabaseIsLocal, shouldPushSchema } from './lib/database-target'
 import { env } from './lib/env'
@@ -70,8 +71,12 @@ export default buildConfig({
   plugins: [
     vercelBlobStorage({
       enabled: Boolean(env.BLOB_READ_WRITE_TOKEN),
-      collections: { media: true },
+      // Previews share the production Blob store: keep their uploads under `preview/`.
+      collections: { media: { prefix: mediaPrefix(process.env) } },
       token: env.BLOB_READ_WRITE_TOKEN,
+      // Same `media` columns (`prefix`, `_object_key`) with and without a Blob token, so migrations
+      // generated locally match production.
+      alwaysInsertFields: true,
     }),
   ],
 })

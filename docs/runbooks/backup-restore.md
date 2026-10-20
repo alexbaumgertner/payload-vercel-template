@@ -68,6 +68,10 @@ past can point at a file that was deleted from Blob since, and a newer file in B
 
 ## 3. Vercel Blob (media)
 
+- Store layout: production uploads have no prefix; preview deployments write under `preview/` (and `vercel dev` under
+  `development/`) so they can't overwrite production files (`src/lib/blob-prefix.ts`). The `preview/` folder is
+  disposable.
+
 - Vercel Blob runs on S3 (Vercel quotes 11 nines of durability and 99.99% availability). Durability is not a backup:
   `del()` / `vercel blob del` / deleting the store are **permanent and cannot be undone**, and overwrites replace the
   file. Retention of deleted blobs: **none** per Vercel docs **[verify in dashboard]**.

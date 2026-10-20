@@ -2,6 +2,27 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Blob media: `preview/` prefix, same `media` columns everywhere
+
+**Context.** Preview and production deployments share one Vercel Blob store (the token is issued to both), but every
+preview has its own Neon branch. Ids and file names drift apart, so a preview upload can write to a production path
+and replace the file; Blob overwrites and deletes are permanent. Separately, `@payloadcms/storage-vercel-blob` adds
+`prefix` and `_objectKey` fields to `media` only when the plugin is enabled (token set). Migrations are generated
+locally without a token, so they never created those columns — production with a Blob token would query columns that
+don't exist.
+
+**Decision.** The plugin's own per-collection `prefix` option, set by `src/lib/blob-prefix.ts`: `<VERCEL_ENV>/` for
+every non-production Vercel environment (`preview/`, and `development/` for `vercel dev`), none for production (stored
+URLs keep resolving) and none locally (files go to `./media`). Reads and deletes use the `prefix` stored on each row.
+`alwaysInsertFields: true` keeps the `media` schema identical with and without a token; migration
+`20261020_095132_media_blob_fields` adds `prefix` (default `''`) and `_objectkey`. Pattern from sync-trainer
+(`artifact-path.ts`); there it was a hand-built path, here the plugin does it.
+
+**Consequences.** Preview uploads accumulate under `preview/` and are never cleaned up automatically — delete the
+folder from the Blob store now and then. Rows a preview inherits from production keep `prefix = ''` and still show
+the production files; deleting such a row on a preview would delete the production file, so don't.
+Revisit if: previews get their own Blob store, or Payload v4 makes `alwaysInsertFields` the default.
+
 ## 2026-10-20 — Local tooling refuses remote databases; push is local-only
 
 **Context.** Push and the scripts used whatever `DATABASE_URL` the process saw. One `vercel env pull` (which writes
