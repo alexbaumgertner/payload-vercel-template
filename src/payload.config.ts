@@ -15,6 +15,7 @@ import { WaitlistSignups } from './collections/WaitlistSignups'
 import { siteConfig } from './config/site'
 import { defaultLocale, localeLabels, locales } from './i18n/locales'
 import { announceDatabase } from './lib/database-url'
+import { assertDevDatabaseIsLocal, shouldPushSchema } from './lib/database-target'
 import { env } from './lib/env'
 
 const filename = fileURLToPath(import.meta.url)
@@ -22,6 +23,9 @@ const dirname = path.dirname(filename)
 
 // Which variable and host this process connects to, in the build and runtime logs.
 announceDatabase()
+// Outside Vercel only a local database, unless ALLOW_REMOTE_DATABASE=1 (src/lib/database-target.ts).
+const databaseTarget = { ...process.env, DATABASE_URL: env.DATABASE_URL }
+assertDevDatabaseIsLocal(databaseTarget)
 
 export default buildConfig({
   serverURL: env.NEXT_PUBLIC_SITE_URL,
@@ -59,7 +63,8 @@ export default buildConfig({
       connectionString: env.DATABASE_URL,
     },
     migrationDir: path.resolve(dirname, 'migrations'),
-    push: env.PAYLOAD_DB_PUSH,
+    // Dev push only into a local database; production changes through migrations.
+    push: shouldPushSchema(env.PAYLOAD_DB_PUSH, databaseTarget),
   }),
   sharp,
   plugins: [

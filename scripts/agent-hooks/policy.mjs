@@ -50,6 +50,11 @@ const SHELL_RULES = [
     reason: 'direct access to a Neon (production) database',
   },
   {
+    // Human-only switch that lets local tooling connect to a remote (production) database.
+    pattern: /(?:^|[;&|(\n]\s*|\b(?:env|export)\s+)(?:\w+=\S*\s+)*ALLOW_REMOTE_DATABASE=["']?1\b/,
+    reason: 'ALLOW_REMOTE_DATABASE=1 points local tooling at a remote database — a human sets it',
+  },
+  {
     pattern: new RegExp(`${CMD}neon(?:ctl)?\\s+(?!(?:--help|-h|help|docs)\\b)\\S`),
     reason: 'the Neon CLI acts on cloud databases — run it yourself',
   },

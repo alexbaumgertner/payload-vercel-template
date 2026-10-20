@@ -91,7 +91,8 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
    views plus the typed product events in `src/lib/analytics.ts`. Default `none` sends nothing; visitors with Do Not
    Track / Global Privacy Control are never counted.
 8. Create the first user against the production database once, from your machine:
-   `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
+   `DATABASE_URI='<neon-url>' ALLOW_REMOTE_DATABASE=1 pnpm create-admin you@example.com` — then sign in at `/admin`
+   with the emailed code. Local tooling refuses remote databases otherwise: `docs/runbooks/production-admin.md`.
 9. Before launch: set the Neon history window and run the restore drill once — `docs/runbooks/backup-restore.md`.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.

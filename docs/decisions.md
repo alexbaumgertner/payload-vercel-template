@@ -2,6 +2,34 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Local tooling refuses remote databases; push is local-only
+
+**Context.** Push and the scripts used whatever `DATABASE_URL` the process saw. One `vercel env pull` (which writes
+production secrets into `.env*.local`) followed by `pnpm dev` would push the dev schema into Neon production — push
+drops columns it doesn't know. `pnpm seed` would write a demo admin into production. The decision on MCP guards
+already noted "a production `DATABASE_URL` in your local `.env` would be used by `pnpm seed` and the dev server".
+
+**Decision.** `src/lib/database-target.ts` (from hht-research-platform, plus murad-portal's seed guard), with the
+resolved URL:
+
+- Push only when requested **and** the host is local (`localhost`, `127.0.0.1`, `::1`, `postgres`,
+  `host.docker.internal`) **and** `NODE_ENV !== 'production'`. No remote-push opt-in (HHT had one for deploy builds;
+  here production changes through migrations only).
+- `payload.config.ts` refuses a remote database outside Vercel (`VERCEL`/`VERCEL_ENV` unset) unless
+  `ALLOW_REMOTE_DATABASE=1`. `NODE_ENV=production` alone does not exempt: orchestrators export it globally.
+- `create-admin` (and `backup:restore`) need `ALLOW_REMOTE_DATABASE=1` for a remote target, even on Vercel. The one
+  deliberate production use is in `docs/runbooks/production-admin.md`.
+- `seed` runs only on a Vercel Preview build or against a local database; no override.
+- The shell guard blocks commands that set `ALLOW_REMOTE_DATABASE=1`: it is a human's switch.
+- `seed` / `create-admin` now load `.env.development.local` before `.env`, like `next dev`, so they use the
+  checkout's database (`scripts/local-env.sh`).
+
+**Consequences.** Self-hosting outside Vercel needs `ALLOW_REMOTE_DATABASE=1` in the runtime env (documented in the
+guard's error). A typo'd local host name (e.g. a custom docker service) is treated as remote — add it to
+`LOCAL_HOSTS`. The guard runs when the Payload config loads, i.e. on the dev server's first Payload request, not on
+`next dev` boot.
+Revisit if: the template moves off Vercel, or a remote dev database becomes a normal setup.
+
 ## 2026-10-20 — Connection string: explicit precedence, logged, `verify-full`
 
 **Context.** On Vercel the Neon integration puts a per-preview branch into `DATABASE_URL`, while `POSTGRES_URL` can

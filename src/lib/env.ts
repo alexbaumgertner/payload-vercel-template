@@ -11,6 +11,9 @@ const serverEnvSchema = z.object({
   // Optional overrides/fallbacks, only consulted by the selection above.
   DATABASE_URI: postgresUrl.optional(),
   POSTGRES_URL: postgresUrl.optional(),
+  // Human-only, per command: lets the dev server / Payload CLI / create-admin / backup:restore
+  // connect to a non-local database. Never enables schema push. See src/lib/database-target.ts.
+  ALLOW_REMOTE_DATABASE: z.literal('1').optional(),
   PAYLOAD_SECRET: z.string().min(16, 'PAYLOAD_SECRET must be at least 16 characters'),
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),

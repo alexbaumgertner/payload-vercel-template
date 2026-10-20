@@ -97,7 +97,8 @@ Goal: prove you can get data back and measure how long it takes. The drill never
    ```
    Compare with production's numbers in the Neon Console (Tables view). Counts should match the past time you chose.
 4. Optional, full app check: run the app locally against the drill branch
-   (`DATABASE_URL=<drill-branch-url> pnpm dev`) and open `/changelog` and `/admin`. Do not run `pnpm seed` or
+   (`DATABASE_URI='<drill-branch-url>' ALLOW_REMOTE_DATABASE=1 pnpm dev` — schema push stays off for remote
+   databases) and open `/changelog` and `/admin`. Do not run `pnpm seed` or
    `pnpm migrate` against it.
 5. Media: pick three `media` rows (`select filename, url from media limit 3`) and open each URL. If you set up a Blob
    copy, restore one file from it into a test pathname and open it.
