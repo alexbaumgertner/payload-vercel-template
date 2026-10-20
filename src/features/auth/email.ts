@@ -2,6 +2,7 @@ import type { Payload } from 'payload'
 
 import { siteConfig } from '@/config/site'
 import { env } from '@/lib/env'
+import { sendMail } from '@/lib/mail-gate'
 
 export function loginCodeEmail(code: string) {
   const text = [
@@ -33,6 +34,7 @@ export function loginCodeSender(payload: Payload) {
       console.info(`\n[auth] RESEND_API_KEY not set — login code for ${to}: ${code}\n`)
       return
     }
-    await payload.sendEmail({ to, ...loginCodeEmail(code) })
+    // Login codes always pass the gate; going through it keeps one door for outbound mail.
+    await sendMail(payload, 'login-code', { to, ...loginCodeEmail(code) })
   }
 }

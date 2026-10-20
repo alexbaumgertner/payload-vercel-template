@@ -2,6 +2,165 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
+
+**Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the
+last mistake, not a deletion noticed a week later. Two sibling products had already added their own copy (sources: `docs/template-changes.md`).
+
+**Options.** (a) `pg_dump` to S3/R2 — Vercel functions have no Postgres binaries, and a bucket plus credentials is one
+more account per product. (b) Data-only dump in Node, encrypted, mailed to the owner — no new service; the mailbox
+keeps history. (c) Stay with Neon only.
+
+**Decision.** (b), with the stronger of the two sibling designs ( dump through Payload's pool in
+one `REPEATABLE READ READ ONLY` snapshot; restore refuses non-empty targets instead of deleting first; NOT NULL
+foreign keys order the inserts and nullable ones are filled in a second pass, so cycles work; JSON columns encoded by
+type) plus the other one's dump-version check. `src/lib/backup/` + `GET /api/cron/backup` (cron auth, `maxDuration`
+300, daily in `vercel.json`), gzip + AES-256-GCM with `BACKUP_KEY`, mailed via the mail gate as `operator` mail
+(base64 attachment: the Resend adapter sends JSON). Skips `auth_codes`, `users_sessions`, Payload locks/kv and
+`payload_migrations`. Off unless `BACKUP_EMAIL` + `CRON_SECRET`; once configured every failure (missing key, DB error,
+over 25 MB, mail refused) sends "backup NOT made". `pnpm backup:verify` (no DB) and `pnpm backup:restore` (empty
+target, one transaction, sequences reset, remote needs `ALLOW_REMOTE_DATABASE=1`). An int test restores a real dump
+with the real script into a fresh database and compares row counts.
+
+**Consequences.** Recovery point for Postgres: last night's copy (or inside Neon's window). Copies hold PII (emails),
+encrypted; the key lives only in the password manager. Vercel Blob media are **still not backed up** — Backups stays
+`partial` in the baseline. Restore needs the schema of the backup's date (code from that commit). Past ~25 MB
+encrypted, email no longer fits: the failure email says so.
+Revisit if: the copy nears the cap, users upload files (back up Blob too), or compliance needs storage outside email.
+
+## 2026-10-20 — Raw SQL allowed in `src/lib/backup/` only
+
+**Context.** `AGENTS.md` forbids raw SQL and Drizzle calls: data goes through the Payload Local API. A backup must read
+and write every table, including Payload's internal ones, inside one snapshot/transaction, and reset sequences — none
+of which the Local API offers.
+
+**Decision.** A narrow exception: SQL through `payload.db.pool` (the `pg` pool `@payloadcms/db-postgres` already
+holds) is allowed in `src/lib/backup/` only, and only for the dump/restore mechanics. Identifiers come from
+`information_schema` and are quoted; values are parameters. Tests may use the pool to verify backups. Everything else
+still uses the Local API.
+
+**Consequences.** One folder to review carefully when touching SQL; reviewers treat raw SQL anywhere else as a finding.
+Revisit if: Payload ships a supported export/import.
+
+## 2026-10-20 — `GET /api/health`: database round-trip, nothing else
+
+**Context.** No endpoint said "the app is up and can reach Postgres". Uptime monitors had to load a page, and
+Playwright's `webServer.url` waited on `/`, which answers before Payload is initialised (a product built from the template had to
+point it at `/changelog` to force Payload's first-request schema push).
+
+**Decision.** `src/app/api/health/route.ts`, a plain Next route (the static segment wins over Payload's
+`api/[...slug]`; `src/proxy.ts` skips `/api`; e2e checks both). Body `{ ok, db: 'up'|'down', commit, checkedAt }`
+(`commit` = first 7 of `VERCEL_GIT_COMMIT_SHA`, else `local`), `Cache-Control: no-store`, 200/503. The database check
+is `payload.count({ collection: 'users' })` with a 5 s timeout — a COUNT returns no documents (Payload's
+`find({ limit: 0 })` would mean "no limit", so it is not used). No counts or hosts in the response. Failures go to
+`captureServerError`. `playwright.config.ts` waits on it; Playwright keeps polling while it answers 503.
+Builder pattern from a sibling product.
+
+**Consequences.** Each call is one tiny query; a monitor polling every minute keeps a Neon compute awake (scale-to-zero
+won't kick in) — poll less often if that matters.
+Revisit if: products need deeper checks (queues, third parties) — add them as separate fields, keep `ok` meaning "serving".
+
+## 2026-10-20 — Mail gate: only login codes leave previews and the sandbox sender
+
+**Context.** Previews usually share the production Resend key and sender and run on a branch of the production
+database, so an invite or notification triggered on a preview URL would reach real people from the production domain.
+The `@resend.dev` sandbox sender delivers only to the Resend account owner; other mail from it is dropped silently.
+The template sends only login codes today; products add the rest.
+
+**Decision.** `src/lib/mail-gate.ts` (ported from a sibling product): `sendMail(payload, kind, message)` is
+the one door. `login-code` always passes (signing in to a preview must work); `operator` (backup reports to
+`BACKUP_EMAIL`) is refused on previews but allowed from the sandbox, which delivers to the owner; `general` is refused
+on previews and from the sandbox. Refusals and a missing `RESEND_API_KEY` come back as a result, not an exception.
+`EMAIL_FROM_ADDRESS` accepts `Name <address>`; the name replaces the site name as the sender name.
+`src/features/AGENTS.md` tells agents to use the gate for any new mail.
+
+**Consequences.** Testing invite mail end-to-end needs production or a local run with a verified sender. A product
+whose previews have their own Resend key and sender can relax the preview rule there.
+Revisit if: previews get separate mail credentials, or a product needs preview mail to a fixed test inbox.
+
+## 2026-10-20 — Cron routes fail closed without `CRON_SECRET`
+
+**Context.** Vercel Cron calls routes with `Authorization: Bearer $CRON_SECRET`. The common pattern
+`!secret || header === …` opens the route whenever the secret is missing — on previews, which usually don't get the
+variable and whose database is a branch of production. A sibling product had exactly that bug in its backup route.
+
+**Decision.** `src/lib/cron-auth.ts` (ported from two sibling products): with a secret, the header must match
+exactly, compared as SHA-256 digests with `timingSafeEqual` (constant time, any length); without one, allowed only when
+`VERCEL_ENV` is unset (local runs). Env is a parameter, so every branch is unit-tested. `CRON_SECRET` must be ≥ 16
+characters (`env.ts`).
+
+**Consequences.** Set `CRON_SECRET` in Vercel (Production) before relying on any cron; without it the cron calls get
+401 and the job silently doesn't run — the backup's "no email that day" rule makes that visible.
+Revisit if: Vercel signs cron requests some other way.
+
+## 2026-10-20 — Blob media: `preview/` prefix, same `media` columns everywhere
+
+**Context.** Preview and production deployments share one Vercel Blob store (the token is issued to both), but every
+preview has its own Neon branch. Ids and file names drift apart, so a preview upload can write to a production path
+and replace the file; Blob overwrites and deletes are permanent. Separately, `@payloadcms/storage-vercel-blob` adds
+`prefix` and `_objectKey` fields to `media` only when the plugin is enabled (token set). Migrations are generated
+locally without a token, so they never created those columns — production with a Blob token would query columns that
+don't exist.
+
+**Decision.** The plugin's own per-collection `prefix` option, set by `src/lib/blob-prefix.ts`: `<VERCEL_ENV>/` for
+every non-production Vercel environment (`preview/`, and `development/` for `vercel dev`), none for production (stored
+URLs keep resolving) and none locally (files go to `./media`). Reads and deletes use the `prefix` stored on each row.
+`alwaysInsertFields: true` keeps the `media` schema identical with and without a token; migration
+`20261020_095132_media_blob_fields` adds `prefix` (default `''`) and `_objectkey`. Pattern from a sibling product,
+where it was a hand-built path; here the plugin does it.
+
+**Consequences.** Preview uploads accumulate under `preview/` and are never cleaned up automatically — delete the
+folder from the Blob store now and then. Rows a preview inherits from production keep `prefix = ''` and still show
+the production files; deleting such a row on a preview would delete the production file, so don't.
+Revisit if: previews get their own Blob store, or Payload v4 makes `alwaysInsertFields` the default.
+
+## 2026-10-20 — Local tooling refuses remote databases; push is local-only
+
+**Context.** Push and the scripts used whatever `DATABASE_URL` the process saw. One `vercel env pull` (which writes
+production secrets into `.env*.local`) followed by `pnpm dev` would push the dev schema into Neon production — push
+drops columns it doesn't know. `pnpm seed` would write a demo admin into production. The decision on MCP guards
+already noted "a production `DATABASE_URL` in your local `.env` would be used by `pnpm seed` and the dev server".
+
+**Decision.** `src/lib/database-target.ts` (ported from a sibling product, plus the seed guard of a product built from the template), with the
+resolved URL:
+
+- Push only when requested **and** the host is local (`localhost`, `127.0.0.1`, `::1`, `postgres`,
+  `host.docker.internal`) **and** `NODE_ENV !== 'production'`. No remote-push opt-in (the source had one for deploy builds;
+  here production changes through migrations only).
+- `payload.config.ts` refuses a remote database outside Vercel (`VERCEL`/`VERCEL_ENV` unset) unless
+  `ALLOW_REMOTE_DATABASE=1`. `NODE_ENV=production` alone does not exempt: orchestrators export it globally.
+- `create-admin` (and `backup:restore`) need `ALLOW_REMOTE_DATABASE=1` for a remote target, even on Vercel. The one
+  deliberate production use is in `docs/runbooks/production-admin.md`.
+- `seed` runs only on a Vercel Preview build or against a local database; no override.
+- The shell guard blocks commands that set `ALLOW_REMOTE_DATABASE=1`: it is a human's switch.
+- `seed` / `create-admin` now load `.env.development.local` before `.env`, like `next dev`, so they use the
+  checkout's database (`scripts/local-env.sh`).
+
+**Consequences.** Self-hosting outside Vercel needs `ALLOW_REMOTE_DATABASE=1` in the runtime env (documented in the
+guard's error). A typo'd local host name (e.g. a custom docker service) is treated as remote — add it to
+`LOCAL_HOSTS`. The guard runs when the Payload config loads, i.e. on the dev server's first Payload request, not on
+`next dev` boot.
+Revisit if: the template moves off Vercel, or a remote dev database becomes a normal setup.
+
+## 2026-10-20 — Connection string: explicit precedence, logged, `verify-full`
+
+**Context.** On Vercel the Neon integration puts a per-preview branch into `DATABASE_URL`, while `POSTGRES_URL` can
+still point at production. Code that read `POSTGRES_URL` first would make a preview write into production with no
+error. Neon's strings carry `sslmode=require`, which `pg` treats as `verify-full` today but will downgrade to libpq
+semantics (no certificate check) in its next major. An env file line `KEY=` produced an empty string, which failed
+validation (`z.url()`) or overrode a default instead of meaning "unset".
+
+**Decision.** `src/lib/database-url.ts` picks `DATABASE_URI` (hand-set) → `DATABASE_URL` → `POSTGRES_URL`, upgrades
+`require|prefer|verify-ca` to `verify-full` (URLs without `sslmode` — local Postgres — are untouched), and logs once
+per process `[db] using <SOURCE>: <host>/<db> · fingerprint <sha256(host)[:8]>` — never credentials. Vercel redacts
+hosts that look like secrets; the fingerprint survives, so production and preview logs can be compared. `env.ts`
+resolves `DATABASE_URL` through it (the rest of the code reads only `env.DATABASE_URL`) and drops empty values
+before validation. `int-setup.ts` deletes `DATABASE_URI` / `POSTGRES_URL` so they can't beat the test database.
+Ported from sibling products (selection and TLS; the `KEY=` fix).
+
+**Consequences.** A `DATABASE_URI` in a local env file wins over `DATABASE_URL` — the startup log line shows which.
+Revisit if `pg` changes `sslmode` semantics again or Neon's integration changes variable names.
+
 ## 2026-10-20 — Agent file access: local env files yes, production env and `.vercel/` no
 
 **Context.** `CLAUDE.md` said reading `.env` / `.env.*` was denied, but the `deny` list in `.claude/settings.json` was
@@ -81,6 +240,9 @@ with — check it before relying on 18-only features.
 Revisit when Vercel adds the next Node LTS.
 
 ## 2026-10-01 — Backups: rely on Neon instant restore, document the Blob gap, drill quarterly
+
+**Superseded on 2026-10-20** by "Daily encrypted database backup by email" — the Postgres part only; the Blob gap
+and the quarterly drill still stand.
 
 **Context.** The template had no restore procedure. Neon keeps a plan-dependent history window; Vercel Blob has no
 native backup and deletes are permanent.
@@ -320,7 +482,7 @@ Revisit if: Vercel ships a read-only/scoped MCP mode, or Cursor runs MCP hooks i
 
 ## Passwordless login with email one-time codes
 
-Ported from hht-research-platform. No passwords to leak, reset or brute-force; admins are few and
+Ported from a sibling product. No passwords to leak, reset or brute-force; admins are few and
 already live in their inbox. Codes are HMAC-hashed, expire in 10 minutes, burn after 5 wrong tries;
 rate limits (3 per email / 15 min, 20 per IP / hour) are counted in Postgres because serverless
 instances share no memory. Session = our own signed cookie read by a Payload auth strategy, since

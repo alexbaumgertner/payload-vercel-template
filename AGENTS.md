@@ -25,6 +25,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 - `pnpm migrate:create <name>` — before merging schema changes (see "Database")
 - `pnpm seed` — idempotent demo data + `admin@example.com`
 - `pnpm create-admin <email>` — add a user (there is no sign-up or first-user screen)
+- `pnpm backup:verify <file>` / `pnpm backup:restore <file>` — check / restore a mailed backup (human; `docs/runbooks/backup-restore.md`)
 
 ## Layout
 
@@ -49,7 +50,8 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 
 ## Rules
 
-- Data access goes through the Payload Local API in `service.ts` / `queries.ts`. No raw SQL, no Drizzle calls.
+- Data access goes through the Payload Local API in `service.ts` / `queries.ts`. No raw SQL, no Drizzle calls —
+  except `src/lib/backup/` (dump/restore through `payload.db.pool`, see `docs/decisions.md`).
 - Public reads use `overrideAccess: false`. Anything the Local API writes on behalf of a visitor must be validated with Zod first.
 - Mutations from the UI are Server Actions returning a typed state object — not route handlers.
   Wrap them in `monitorAction()`; errors you catch and turn into a message go to `captureServerError()`.
@@ -85,6 +87,9 @@ docs/runbooks/        human-only procedures (backup & restore) — agents read, 
 - Local dev uses Payload **push** mode (schema syncs automatically). Never run `pnpm migrate` against the dev DB.
 - Production only changes via migrations: after changing collections run `pnpm migrate:create <name>` and commit the files.
   Vercel runs `pnpm build:vercel` → `payload migrate` → `next build`.
+- Local tooling refuses remote databases (`src/lib/database-target.ts`): push only into a local DB, the dev server /
+  Payload CLI / `create-admin` / `backup:restore` need `ALLOW_REMOTE_DATABASE=1` (human-only — the shell guard blocks
+  it), `seed` runs only locally or on a Vercel Preview build.
 - Never connect to the production (Neon) database from the agent — not via shell, not via Neon/Vercel MCP.
   `scripts/agent-hooks/guard-mcp.mjs` blocks it; don't work around a block, ask the human.
 - **Schema-push trap.** Push applies only changes it can make silently; anything else becomes an interactive

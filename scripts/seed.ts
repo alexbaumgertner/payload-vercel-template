@@ -1,7 +1,9 @@
-import 'dotenv/config'
+import './load-env'
 
 import { getPayload } from 'payload'
 
+import { canSeed } from '../src/lib/database-target'
+import { env } from '../src/lib/env'
 import config from '../src/payload.config'
 import type { Changelog } from '../src/payload-types'
 
@@ -94,6 +96,12 @@ const entries: SeedEntry[] = [
 ]
 
 async function seed() {
+  if (!canSeed({ ...process.env, DATABASE_URL: env.DATABASE_URL })) {
+    throw new Error(
+      'pnpm seed writes demo data and runs only against a local database or on a Vercel Preview ' +
+        'build. Point DATABASE_URL at a local Postgres (.env.development.local).',
+    )
+  }
   const payload = await getPayload({ config })
   const context = { disableRevalidate: true }
 

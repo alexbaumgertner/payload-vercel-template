@@ -3,6 +3,9 @@ import { config } from 'dotenv'
 // dotenv never overrides an already-set variable, so the shell, then the first file wins.
 config({ path: ['.env.test.local', '.env'], quiet: true })
 
-// Integration tests must never touch the dev or production database.
+// Integration tests must never touch the dev or production database. DATABASE_URI and
+// POSTGRES_URL would win over / stand in for DATABASE_URL (src/lib/database-url.ts), so drop them.
+delete process.env.DATABASE_URI
+delete process.env.POSTGRES_URL
 process.env.DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgresql://app:app@127.0.0.1:5432/app_test'

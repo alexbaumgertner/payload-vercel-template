@@ -79,6 +79,10 @@ describe('shell guard', () => {
     ['vercel env pull .env.local', 'env pull into a local file'],
     ['vercel pull --yes', 'pull project settings and env'],
     ['vercel env add DATABASE_URL production', 'env add'],
+    ['ALLOW_REMOTE_DATABASE=1 pnpm create-admin a@b.c', 'remote database opt-in'],
+    ['DATABASE_URI=$X ALLOW_REMOTE_DATABASE=1 pnpm dev', 'opt-in after another assignment'],
+    ["export ALLOW_REMOTE_DATABASE='1'; pnpm backup:restore f", 'exported opt-in'],
+    ['pnpm check && env ALLOW_REMOTE_DATABASE=1 pnpm seed', 'opt-in via env after &&'],
   ])('blocks %s (%s)', (command) => {
     expect(checkShellCommand(command).allowed).toBe(false)
   })
@@ -105,6 +109,8 @@ describe('shell guard', () => {
     'neonctl --help',
     'echo "neon lights" && grep -r vercel docs',
     'rg "drop shadow" src',
+    'rg "ALLOW_REMOTE_DATABASE=1" docs',
+    'pnpm create-admin a@example.com',
   ])('allows %s', (command) => {
     expect(checkShellCommand(command).allowed).toBe(true)
   })

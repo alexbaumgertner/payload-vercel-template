@@ -29,7 +29,9 @@ export default defineConfig({
   ],
   webServer: {
     command: `pnpm exec cross-env NODE_OPTIONS=--no-deprecation PAYLOAD_DB_PUSH=true next dev --port ${PORT}`,
-    url: baseURL,
+    // 503 until Payload has initialised and reached the database (and the dev server pushed the
+    // schema), so tests never start against a half-ready server.
+    url: `${baseURL}/api/health`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

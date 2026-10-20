@@ -30,7 +30,7 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 - `int` needs local Postgres (`docker compose up -d` creates `app` + `app_test`); `tests/helpers/int-setup.ts` loads
   `.env.test.local` then `.env` and forces `DATABASE_URL` to `TEST_DATABASE_URL` / `app_test`. Files run serially
   (`fileParallelism: false`).
-- `e2e` reuses a dev server already on `E2E_PORT ?? PORT ?? 3000` (else starts one). Workers run with
+- `e2e` reuses a dev server already on `E2E_PORT ?? PORT ?? 3000` (else starts one and waits for `/api/health` = 200). Workers run with
   `PAYLOAD_DB_PUSH=false`; only the dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`), seed with
   `seedUser.ts` / `seedChangelog.ts`.
 - `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` — `vi.mock` the action.

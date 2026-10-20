@@ -8,12 +8,12 @@ Sources: Neon docs (Backup & restore, Instant restore, History window) and Verce
 
 ## 1. What holds data
 
-| Store           | What lives there                                                                                                                                                                                   | Backed up by                                               |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Neon Postgres   | `users` + `users_sessions`, `waitlist_signups` (emails — PII), `changelog` + `changelog_locales`, `media` metadata, `auth_codes` (short-lived), Payload preferences/locks/kv, `payload_migrations` | Neon history window (instant restore) + optional snapshots |
-| Vercel Blob     | Uploaded media files (only when `BLOB_READ_WRITE_TOKEN` is set)                                                                                                                                    | **Nothing.** No native backup; deletes are permanent       |
-| Vercel env vars | `PAYLOAD_SECRET`, `DATABASE_URL`, `RESEND_API_KEY`, `SENTRY_*`, …                                                                                                                                  | Not backed up — keep a copy in your password manager       |
-| Git             | Code, migrations, seed data                                                                                                                                                                        | GitHub                                                     |
+| Store           | What lives there                                                                                                                                                                                   | Backed up by                                                                                         |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Neon Postgres   | `users` + `users_sessions`, `waitlist_signups` (emails — PII), `changelog` + `changelog_locales`, `media` metadata, `auth_codes` (short-lived), Payload preferences/locks/kv, `payload_migrations` | Neon history window (instant restore) + optional snapshots + **daily encrypted copy by email** (§2a) |
+| Vercel Blob     | Uploaded media files (only when `BLOB_READ_WRITE_TOKEN` is set)                                                                                                                                    | **Nothing.** No native backup; deletes are permanent                                                 |
+| Vercel env vars | `PAYLOAD_SECRET`, `DATABASE_URL`, `RESEND_API_KEY`, `SENTRY_*`, …                                                                                                                                  | Not backed up — keep a copy in your password manager                                                 |
+| Git             | Code, migrations, seed data                                                                                                                                                                        | GitHub                                                                                               |
 
 The database and Blob are **not restored together**: Neon restores rows, not files. A `media` row restored from the
 past can point at a file that was deleted from Blob since, and a newer file in Blob can be orphaned.
@@ -66,7 +66,76 @@ past can point at a file that was deleted from Blob since, and a newer file in B
 7. **Record it** in `docs/decisions.md` or your incident log: time noticed, restore point, data lost between the
    restore point and the restore, follow-ups. Delete `production_old_<ts>` only once you are sure (it holds PII).
 
+## 2a. Daily encrypted copy by email
+
+Neon's history window undoes the last mistake (hours on the free plan); it does not recover a deletion noticed a week
+later. A Vercel Cron job (`vercel.json`, daily 03:00 UTC) calls `GET /api/cron/backup`, which reads every table in one
+consistent snapshot, gzips it, encrypts it with AES-256-GCM and mails it to `BACKUP_EMAIL` as
+`<site>-YYYY-MM-DD.json.gz.enc`. The mailbox is the only copy store; keep the emails as long as you want to be able to
+go back. Code: `src/lib/backup/`, decision in `docs/decisions.md`.
+
+**In a copy:** the rows of every table, except short-lived ones (`auth_codes`, `users_sessions`, Payload locks and kv,
+`payload_migrations`). **Not in a copy:** the schema (recreated from the code), Vercel Blob media files, env vars.
+
+**If a backup fails** you get "`<site>` backup NOT made" with the reason (missing/invalid key, database error, copy
+over the 25 MB mail limit, mail refused). **No email at all** on a given day means the cron didn't run: check Vercel →
+Project → Cron Jobs and that `CRON_SECRET` is set.
+
+### Setup (Vercel → Settings → Environment Variables, **Production only**)
+
+| Variable       | Value                                                                                                       |
+| -------------- | ----------------------------------------------------------------------------------------------------------- |
+| `BACKUP_KEY`   | `openssl rand -base64 32`. **Store it in your password manager first.** Losing it makes every copy useless. |
+| `BACKUP_EMAIL` | Where copies go. With the `@resend.dev` sandbox sender it must be the Resend account's own address.         |
+| `CRON_SECRET`  | `openssl rand -hex 32`. Vercel Cron sends it as `Authorization: Bearer …`; without it cron calls get 401.   |
+
+The route is a no-op unless `BACKUP_EMAIL` and `CRON_SECRET` are set; it never mails an unencrypted copy. Not on
+Preview: previews have no cron, and the mail gate refuses operator mail there. After setting the variables, redeploy
+and run one backup by hand:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" https://<your-domain>/api/cron/backup
+```
+
+### Check a copy (quarterly, from your machine)
+
+```bash
+BACKUP_KEY='<from password manager>' pnpm backup:verify ~/Downloads/<site>-YYYY-MM-DD.json.gz.enc
+```
+
+Decrypts the file, prints row counts per table, fails if it has no users. Touches no database.
+
+### Restore a copy
+
+Into an **empty** database only — the script refuses any non-empty table and runs in one transaction, so a failure
+leaves the target untouched. Use the code from (or close to) the backup's date, so the schema matches.
+
+- **Locally / drill:**
+
+  ```bash
+  createdb app_restore
+  DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_restore BACKUP_KEY='…' pnpm backup:restore <file>
+  ```
+
+  Starting Payload pushes the schema into the empty database, then rows go in foreign-key order and sequences are
+  reset.
+
+- **Real recovery on Neon:** create a new empty branch/database (Neon Console), then from your machine — not from an
+  agent:
+
+  ```bash
+  DATABASE_URI='<new branch url>' ALLOW_REMOTE_DATABASE=1 pnpm payload migrate
+  DATABASE_URI='<new branch url>' ALLOW_REMOTE_DATABASE=1 BACKUP_KEY='…' pnpm backup:restore <file>
+  ```
+
+  Push never runs against a remote database, so `payload migrate` creates the schema first. Check the app against the
+  branch, then point Vercel's `DATABASE_URL` at it and redeploy. Media files are not part of the copy (§3).
+
 ## 3. Vercel Blob (media)
+
+- Store layout: production uploads have no prefix; preview deployments write under `preview/` (and `vercel dev` under
+  `development/`) so they can't overwrite production files (`src/lib/blob-prefix.ts`). The `preview/` folder is
+  disposable.
 
 - Vercel Blob runs on S3 (Vercel quotes 11 nines of durability and 99.99% availability). Durability is not a backup:
   `del()` / `vercel blob del` / deleting the store are **permanent and cannot be undone**, and overwrites replace the
@@ -97,7 +166,8 @@ Goal: prove you can get data back and measure how long it takes. The drill never
    ```
    Compare with production's numbers in the Neon Console (Tables view). Counts should match the past time you chose.
 4. Optional, full app check: run the app locally against the drill branch
-   (`DATABASE_URL=<drill-branch-url> pnpm dev`) and open `/changelog` and `/admin`. Do not run `pnpm seed` or
+   (`DATABASE_URI='<drill-branch-url>' ALLOW_REMOTE_DATABASE=1 pnpm dev` — schema push stays off for remote
+   databases) and open `/changelog` and `/admin`. Do not run `pnpm seed` or
    `pnpm migrate` against it.
 5. Media: pick three `media` rows (`select filename, url from media limit 3`) and open each URL. If you set up a Blob
    copy, restore one file from it into a test pathname and open it.
@@ -112,6 +182,8 @@ Copy into your task tracker every quarter.
       could go unnoticed (weekends, holidays).
 - [ ] Scheduled snapshots are on and the latest one is recent **[verify in dashboard]**, or you decided you don't need them.
 - [ ] Run the restore drill (§4); record duration and row counts.
+- [ ] A backup email arrived for each of the last 7 days; `pnpm backup:verify` opens the newest one with the key from
+      the password manager; restore it into a local database once (§2a).
 - [ ] Vercel Blob: list the store size and count; if users upload anything you can't recreate, schedule the Blob copy (§3).
 - [ ] Env vars: the password-manager copy matches Vercel (Project → Settings → Environment Variables), including
       `PAYLOAD_SECRET`. Losing it logs everyone out and invalidates pending login codes; data stays readable.
