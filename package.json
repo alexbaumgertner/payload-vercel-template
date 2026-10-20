@@ -26,6 +26,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "check": "pnpm typecheck && pnpm lint && pnpm test:unit",
     "test": "pnpm test:unit && pnpm test:browser && pnpm test:int && pnpm test:e2e",
     "test:unit": "vitest run --project unit",

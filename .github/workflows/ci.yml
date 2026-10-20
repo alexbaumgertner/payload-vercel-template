@@ -55,6 +55,8 @@ jobs:
       - name: Create test database
         run: psql "$DATABASE_URL" -c "CREATE DATABASE app_test OWNER app;"
 
+      - run: pnpm format:check
+
       - run: pnpm check
 
       - run: pnpm test:int

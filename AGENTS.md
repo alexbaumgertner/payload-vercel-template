@@ -16,6 +16,7 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 
 - `pnpm dev` — http://localhost:3000, or `PORT` (admin: `/admin`)
 - `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
+- `pnpm format:check` — prettier check, as in CI (`pnpm format` fixes; agent hooks format edited files)
 - `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)
 - `pnpm test:e2e` — Playwright (desktop + mobile), reuses a running dev server
