@@ -49,3 +49,27 @@ test.describe('sitemap.xml', () => {
     expect(changelog).toMatch(/<lastmod>\d{4}-\d{2}-\d{2}T/)
   })
 })
+
+test.describe('share image', () => {
+  test('every locale links its own 1200×630 PNG, served without a locale redirect', async ({
+    page,
+    request,
+  }) => {
+    const images: Buffer[] = []
+    for (const path of ['/', '/ru', '/changelog']) {
+      await page.goto(path)
+      const content = await page.locator('meta[property="og:image"]').getAttribute('content')
+      const url = new URL(content ?? '')
+      expect(url.pathname, path).toMatch(/^\/(en|ru)\/opengraph-image/)
+      await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', url.href)
+
+      const response = await request.get(url.pathname + url.search, { maxRedirects: 0 })
+      expect(response.status(), path).toBe(200)
+      expect(response.headers()['content-type']).toBe('image/png')
+      const png = await response.body()
+      expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1200, 630])
+      images.push(png)
+    }
+    expect(images[0]?.equals(images[1] ?? Buffer.alloc(0))).toBe(false)
+  })
+})

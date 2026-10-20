@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — Default share image: one generated card per locale, fonts from the repo
+
+**Context.** Links to the site showed no preview image. A sibling product renders its cards with `next/og` and fonts
+bundled in the repo, because the default font lacked its scripts and was otherwise fetched at render time.
+
+**Decision.** `src/app/(frontend)/[locale]/opengraph-image.tsx` renders `renderSiteCard()` (`src/lib/og-image.tsx`):
+`siteConfig.name`, the localized `Metadata.tagline`, and the site host, 1200×630 PNG, prerendered per locale
+(`generateStaticParams`). Fonts: static Geist 400/600 TTFs in `src/fonts/files/` (Satori reads neither WOFF2 nor
+variable weights). Next 16.4's `next/og` bundles Geist Regular with Cyrillic, so the files are for the semi-bold weight
+and so the card doesn't depend on Next's internal default (older versions fell back to a Latin-only font and fetched
+missing glyphs from Google Fonts). Next links the default locale's card as `/en/opengraph-image-…`; `src/proxy.ts`
+skips `*/opengraph-image*`, otherwise the locale proxy 307s every crawler to an unprefixed URL. CSP: nothing changes —
+the card is rendered on the server and the page only references its URL in `<meta>`.
+
+**Consequences.** Absolute image URLs come from `metadataBase` = `siteUrl()`; set `NEXT_PUBLIC_SITE_URL` in Production
+so cards point at the real domain. A page that needs its own card adds an `opengraph-image.tsx` next to it.
+Revisit if: a page needs per-document cards (title, date), or a product changes typefaces (replace the TTFs too).
+
 ## 2026-10-21 — SEO: robots and sitemap per environment, hreflang from one helper
 
 **Context.** The site had hreflang in the page head but no `robots.txt` or sitemap, and `metadataBase` read
