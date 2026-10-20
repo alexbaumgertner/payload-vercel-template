@@ -115,3 +115,11 @@
     font-size: 0.8125rem;
   }
 }
+
+/* Current Geist has wider Cyrillic than the Google Fonts build it replaced: the Russian menu
+   needs a few more pixels on 320px phones. Links stay well above 24×24px targets. */
+@media (max-width: 340px) {
+  .link {
+    padding-inline: 0.125rem;
+  }
+}

@@ -2,6 +2,23 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — Local fonts: Geist is vendored, the build fetches nothing from Google Fonts
+
+**Context.** `next/font/google` downloads fonts during `next build`. Google can return extensionless URLs that break
+Next's loader ([Next.js #99114](https://github.com/vercel/next.js/issues/99114)); on 2026-10-15 that failed a derived
+product's dependency-update Preview and its local production build. Offline or behind a proxy, the build fails too.
+
+**Decision.** `src/fonts/site.ts` loads Geist and Geist Mono with `next/font/local` from variable WOFF2 files (Latin +
+Cyrillic, weight 100–900) in `src/fonts/files/`, with their OFL licenses and pinned upstream in `src/fonts/README.md`.
+CSS variable names (`--font-geist-sans`, `--font-geist-mono`) are unchanged. `tests/unit/fonts.unit.spec.ts` fails if
+`next/font/google` is imported again or a file lacks its license/README row. Verified: with a dead `HTTPS_PROXY`
+(`NODE_USE_ENV_PROXY=1`), `pnpm build` failed with Google fonts and passes with local ones.
+
+**Consequences.** No new CSP origin or runtime request. ~140 KB of font files in the repo. Updating Geist means
+refreshing files and licenses by hand from a pinned commit.
+Revisit if: a product changes typefaces (put the new files and licenses in `src/fonts/` the same way), or the Google
+loader is fixed and vendoring stops paying for itself.
+
 ## 2026-10-21 — Dependencies: pins follow a derived product's green CI; one Dependabot group for minor/patch
 
 **Context.** The template's pins (Payload 3.90.2, Next 16.3.8, `@types/node` 22) fell behind a product built from it,
