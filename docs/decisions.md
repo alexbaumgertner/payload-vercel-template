@@ -2,6 +2,23 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — Dependencies: pins follow a derived product's green CI; one Dependabot group for minor/patch
+
+**Context.** The template's pins (Payload 3.90.2, Next 16.3.8, `@types/node` 22) fell behind a product built from it,
+which runs Payload 3.91.0 / Next 16.4.2 / `@types/node` 24 green in CI. Four Dependabot groups (payload, react, next,
+dev-tools) meant up to four PRs a week to review alone, and Dependabot proposed `@types/node` 26 for a Node 24 runtime.
+
+**Decision.** Bump to the derived product's versions (README → Versions). Dependabot: a single `npm-minor-patch`
+group (`patterns: ['*']`, minor + patch); majors stay ungrouped, one PR each. `@types/node` majors are ignored — the
+types follow the runtime (`engines`, `.nvmrc`), bumped by hand with it. pnpm warns that Vite's optional `esbuild`
+peer (`^0.27 || ^0.28`) resolves to 0.25 (pulled by `drizzle-kit`); Vite 8 bundles with Rolldown, nothing breaks.
+Re-ran the 2026-10-20 migrate experiment on 3.91.0: with the last migration moved aside and `PAYLOAD_DB_PUSH=true`,
+`payload migrate` still did not push its column.
+
+**Consequences.** One red package blocks the whole weekly group: find it in the CI log, then either fix it in the
+group PR or add an `ignore` for that version and let the rest merge. Majors still need reading the changelog.
+Revisit if: group PRs are red more often than not (split out the offender), or the runtime moves to Node 26.
+
 ## 2026-10-20 — Preview smoke: health + Lighthouse on every Vercel Preview, SEO without `is-crawlable`
 
 **Context.** CI tests a dev server; nothing looked at a real deployment (production build, Neon branch, Vercel

@@ -14,7 +14,7 @@ What every product built from this template gets out of the box. Update this tab
 | CI                 | done    | Actions: format, check, int, browser, e2e; migrations on an empty DB + int; preview health + Lighthouse; no secrets needed |
 | Dev environments   | done    | Dev container (Postgres 18, Claude, Codex); `cloud-pg-start.sh` for cloud agents; `local-env.sh` per checkout              |
 | Operations         | done    | `GET /api/health` (DB round-trip, 200/503); cron auth fails closed; non-login mail gated on previews and sandbox           |
-| Dependency updates | done    | Dependabot weekly; Payload / React / Next / dev-tools grouped; majors as separate PRs                                      |
+| Dependency updates | done    | Dependabot weekly: one PR with all minor/patch updates, each major separately; `@types/node` follows Node 24               |
 
 Features are specified in `docs/stories/` — each acceptance criterion maps to a named test.
 Agent safety: shell + MCP guards with tests (Claude Code, Cursor), env-file permissions, Codex Stop check; known gaps

@@ -14,18 +14,23 @@ What's inside out of the box:
 
 ## Versions
 
+Pinned exact; these are the versions a product built from this template runs green in CI.
+
 | Package                 | Version       | Why this one                                           |
 | ----------------------- | ------------- | ------------------------------------------------------ |
-| next                    | 16.3.8        | latest 16.x; Payload 3.90 supports `>=16.3.3 <17`      |
-| payload + @payloadcms/* | 3.90.2        | latest                                                 |
-| react / react-dom       | 19.3.0        | within Payload's `^19.2.1`                             |
+| next                    | 16.4.2        | latest 16.x; Payload 3.91 supports `>=16.3.3 <17`      |
+| payload + @payloadcms/* | 3.91.0        | latest                                                 |
+| react / react-dom       | 19.3.1        | within Payload's `^19.2.1`                             |
 | typescript              | 6.0.3         | typescript-eslint supports `<6.1` (TS 7 not yet)       |
-| zod                     | 4.6.5         | latest                                                 |
-| vitest / vite           | 5.0.3 / 8.3.1 | latest                                                 |
-| @playwright/test        | 1.63.0        | latest                                                 |
+| @types/node             | 24.19.2       | matches the Node 24 runtime; majors are ignored        |
+| zod                     | 4.6.7         | latest                                                 |
+| vitest / vite           | 5.0.5 / 8.3.4 | latest                                                 |
+| @playwright/test        | 1.64.1        | latest                                                 |
 | eslint                  | 9.39.5        | eslint-config-next plugins don't support ESLint 10 yet |
 | graphql                 | 16.14.2       | Payload peer `^16.8.1`                                 |
-| next-intl               | 4.14.8        | latest; peers `next ^16`, `react ^19`                  |
+| next-intl               | 4.14.9        | latest; peers `next ^16`, `react ^19`                  |
+
+Dependabot opens one weekly PR with every minor/patch update (`npm-minor-patch`); each major arrives as its own PR.
 
 ## Quick start
 
