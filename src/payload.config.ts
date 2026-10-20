@@ -14,10 +14,14 @@ import { Users } from './collections/Users'
 import { WaitlistSignups } from './collections/WaitlistSignups'
 import { siteConfig } from './config/site'
 import { defaultLocale, localeLabels, locales } from './i18n/locales'
+import { announceDatabase } from './lib/database-url'
 import { env } from './lib/env'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+// Which variable and host this process connects to, in the build and runtime logs.
+announceDatabase()
 
 export default buildConfig({
   serverURL: env.NEXT_PUBLIC_SITE_URL,

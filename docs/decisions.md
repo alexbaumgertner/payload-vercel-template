@@ -2,6 +2,25 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Connection string: explicit precedence, logged, `verify-full`
+
+**Context.** On Vercel the Neon integration puts a per-preview branch into `DATABASE_URL`, while `POSTGRES_URL` can
+still point at production. Code that read `POSTGRES_URL` first would make a preview write into production with no
+error. Neon's strings carry `sslmode=require`, which `pg` treats as `verify-full` today but will downgrade to libpq
+semantics (no certificate check) in its next major. An env file line `KEY=` produced an empty string, which failed
+validation (`z.url()`) or overrode a default instead of meaning "unset".
+
+**Decision.** `src/lib/database-url.ts` picks `DATABASE_URI` (hand-set) → `DATABASE_URL` → `POSTGRES_URL`, upgrades
+`require|prefer|verify-ca` to `verify-full` (URLs without `sslmode` — local Postgres — are untouched), and logs once
+per process `[db] using <SOURCE>: <host>/<db> · fingerprint <sha256(host)[:8]>` — never credentials. Vercel redacts
+hosts that look like secrets; the fingerprint survives, so production and preview logs can be compared. `env.ts`
+resolves `DATABASE_URL` through it (the rest of the code reads only `env.DATABASE_URL`) and drops empty values
+before validation. `int-setup.ts` deletes `DATABASE_URI` / `POSTGRES_URL` so they can't beat the test database.
+Ported from sync-trainer (selection, TLS) and murad-portal (`KEY=` fix).
+
+**Consequences.** A `DATABASE_URI` in a local env file wins over `DATABASE_URL` — the startup log line shows which.
+Revisit if `pg` changes `sslmode` semantics again or Neon's integration changes variable names.
+
 ## 2026-10-20 — Agent file access: local env files yes, production env and `.vercel/` no
 
 **Context.** `CLAUDE.md` said reading `.env` / `.env.*` was denied, but the `deny` list in `.claude/settings.json` was

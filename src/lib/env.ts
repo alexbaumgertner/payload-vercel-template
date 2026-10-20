@@ -1,7 +1,16 @@
 import { z } from 'zod'
 
+import { selectDatabaseUrl } from './database-url'
+
+const postgresUrl = z.url({ protocol: /^postgres(ql)?$/ })
+
 const serverEnvSchema = z.object({
-  DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  // The connection string the app uses: DATABASE_URI → DATABASE_URL → POSTGRES_URL, with weak
+  // sslmodes upgraded to verify-full (see src/lib/database-url.ts). Always read this one.
+  DATABASE_URL: postgresUrl,
+  // Optional overrides/fallbacks, only consulted by the selection above.
+  DATABASE_URI: postgresUrl.optional(),
+  POSTGRES_URL: postgresUrl.optional(),
   PAYLOAD_SECRET: z.string().min(16, 'PAYLOAD_SECRET must be at least 16 characters'),
   BLOB_READ_WRITE_TOKEN: z.string().min(1).optional(),
   RESEND_API_KEY: z.string().min(1).optional(),
@@ -33,12 +42,17 @@ const serverEnvSchema = z.object({
 
 export type ServerEnv = z.infer<typeof serverEnvSchema>
 
-function parseEnv(): ServerEnv {
-  const result = serverEnvSchema.safeParse(process.env)
+export function parseServerEnv(source: Record<string, string | undefined>): ServerEnv {
+  // `KEY=` in an env file means "unset", not "empty string": defaults and `.optional()` apply.
+  const raw = Object.fromEntries(Object.entries(source).filter(([, value]) => value !== ''))
+  const result = serverEnvSchema.safeParse({
+    ...raw,
+    DATABASE_URL: selectDatabaseUrl(raw)?.url,
+  })
   if (!result.success) {
     throw new Error(`Invalid environment variables:\n${z.prettifyError(result.error)}`)
   }
   return result.data
 }
 
-export const env = parseEnv()
+export const env = parseServerEnv(process.env)
