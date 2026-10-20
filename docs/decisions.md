@@ -2,6 +2,27 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-20 — Preview smoke: health + Lighthouse on every Vercel Preview, SEO without `is-crawlable`
+
+**Context.** CI tests a dev server; nothing looked at a real deployment (production build, Neon branch, Vercel
+functions) before merge. A sibling project runs a smoke job on Vercel's `deployment_status` event.
+
+**Decision.** `.github/workflows/preview-smoke.yml`: on a successful deployment whose environment starts with
+`Preview`, call `/api/health` (retries for cold starts; must contain `"ok":true`), run Lighthouse 12.8.2 (pinned, via
+`npx`, not a dependency) on `/` and `/changelog`, gate the scores with `scripts/lighthouse-check.mjs` (performance 0.8,
+accessibility / best-practices / SEO 0.9) and upload JSON + HTML reports as artifacts. Previews are behind Vercel
+Authentication, so requests carry `x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET`; **without the
+secret the job emits a notice and skips** — new products start without it. **SEO:** Vercel sends
+`X-Robots-Tag: noindex` on previews, so `is-crawlable` always fails there; the gate recomputes the SEO score from its
+weighted audits without that one audit (every other SEO audit still counts) rather than dropping SEO entirely.
+
+**Consequences.** Indexability of production is not checked anywhere — check `/robots.txt` and headers after the
+first production deploy. Lighthouse on shared runners is noisy; perf 0.8 (mobile emulation) may flake. The bypass
+header is sent on every request the audited page makes — fine while all requests are same-origin; revisit before
+adding third-party scripts.
+Revisit if: perf flakes (median of several runs, or `--preset=desktop`), third-party origins are added, or a
+production smoke is wanted (needs a separate, unprotected target).
+
 ## 2026-10-20 — Accessibility floor: axe on every public page, serious/critical only, both themes
 
 **Context.** Nothing checked accessibility automatically. The first axe run found three real `serious` issues: white
