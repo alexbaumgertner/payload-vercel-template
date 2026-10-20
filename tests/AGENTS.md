@@ -6,7 +6,8 @@ Applies to `tests/`, `vitest.config.mts` and `playwright.config.ts`.
 - Browser (`tests/browser/*.browser.spec.tsx`, Vitest Browser Mode in real Chromium via Playwright): interactive client
   components — forms, focus, pending/error states. Render with `vitest-browser-react`, query with `page` and assert with
   `expect.element` from `vitest/browser`; `vi.mock` the `@/features/*/actions` module and return `LoginState`/`WaitlistState`.
-  Never import Payload or server-only code here (`@/lib/payload` is stubbed in this project).
+  Never import Payload or server-only code here (`@/lib/payload` and bare `payload` are stubbed in this project, so a service importing a
+  runtime value such as `APIError` cannot break the dependency optimizer on a cold CI cache).
 - Integration (`tests/int/*.int.spec.ts`, node): services and collection access via the Payload Local API against the
   `app_test` database (set in `tests/helpers/int-setup.ts`). Clean up the collections you touch; call `payload.destroy()` in `afterAll`.
   Pass `context: { disableRevalidate: true }` when creating docs whose hooks revalidate.

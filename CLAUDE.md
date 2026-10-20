@@ -33,7 +33,7 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 - `e2e` reuses a dev server already on `E2E_PORT ?? PORT ?? 3000` (else starts one and waits for `/api/health` = 200). Workers run with
   `PAYLOAD_DB_PUSH=false`; only the dev server pushes schema. Log in with `tests/helpers/login.ts` (`issueKnownCode` → code `424242`), seed with
   `seedUser.ts` / `seedChangelog.ts`.
-- `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` — `vi.mock` the action.
+- `unit`/`browser` alias `server-only` to an empty module; `browser` also stubs `@/lib/payload` and bare `payload` — `vi.mock` the action.
 
 ## Claude Code harness in this repo (`.claude/settings.json`)
 
