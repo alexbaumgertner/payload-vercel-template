@@ -15,7 +15,8 @@ React 19 · TypeScript 6 strict · CSS Modules · Zod 4 · next-intl 4 · Vitest
 ## Commands
 
 - `pnpm dev` — http://localhost:3000, or `PORT` (admin: `/admin`)
-- `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done.**
+- `pnpm check` — typecheck + lint + unit tests. **Run before saying a task is done** — together with `test:int` and
+  `test:e2e`: e2e is part of "done" (`tests/AGENTS.md` → Lessons).
 - `pnpm format:check` — prettier check, as in CI (`pnpm format` fixes; agent hooks format edited files)
 - `pnpm test:browser` — Vitest Browser Mode: client components in real headless Chromium (server actions mocked)
 - `pnpm test:int` — Vitest against real Postgres (`app_test` DB, never the dev DB)
@@ -129,6 +130,8 @@ Several copies of the repo (worktrees, parallel agents) can run side by side on 
 1. User-facing features start as a story in `docs/stories/` (`/feature`): approval → failing tests per criterion → code.
 2. Other tasks touching >3 files or the data model: plan first, wait for approval.
 3. Verify: `pnpm check`, `pnpm test:int`, `pnpm test:e2e`; check UI in the browser (Chrome DevTools MCP), then `reviewer`.
+   Every safety check you add (guard, env gate, access rule, migration test): break what it protects, see it fail,
+   restore — and say so in the commit body.
 4. Conventional commits (`feat:`, `fix:`, `chore:` …), one logical change per commit; update `docs/baseline.md`.
 
 ## Multi-agent workflow (Claude Code · Codex · Cursor · orchestrator · human)
