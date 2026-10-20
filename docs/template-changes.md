@@ -1,7 +1,21 @@
-# Template changes ported from sibling repos
+# Template changes
 
-Where generic fixes in this template came from, so the next port can diff against the source. Product names
-appear only in this file. Newest first.
+Log of template improvements, newest first: what changed, where it came from, and the commits to cherry-pick.
+Product names appear only in this file.
+
+**Pulling a change into a product made from this template.** GitHub's "Use this template" copies files, not history,
+so the repos are unrelated — cherry-pick, don't merge:
+
+```bash
+git remote add template https://github.com/alexbaumgertner/payload-vercel-template
+git fetch template
+git cherry-pick <sha>   # oldest first when an item lists several; resolve conflicts in files the product changed
+pnpm install && pnpm check && pnpm test:int && pnpm test:e2e
+```
+
+SHAs are those on the template's `main`. Template PRs are merged with merge commits (not squashed) so branch SHAs
+stay valid; a phase entry lists one commit per item. After cherry-picking, re-run `pnpm generate:types` if the
+item touched collections, and read the item's entry in `docs/decisions.md`.
 
 ## 2026-10-20 — Phase 3: testing
 

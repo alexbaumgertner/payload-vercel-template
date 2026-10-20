@@ -9,7 +9,9 @@ What's inside out of the box:
 - Payload admin at `/admin` (users, media, waitlist, changelog); media goes to Vercel Blob when configured
 - **English + Russian** public site via next-intl: `/` (en) and `/ru`, language switcher, `<html lang>`, hreflang, browser-language detection; changelog entries translated in the admin with English fallback
 - **Passwordless login**: email → 6-digit one-time code (hashed, 10-min TTL, attempt and rate limits, no account enumeration), sent via Resend
-- Unit, integration (real Postgres) and e2e (desktop + mobile) tests
+- **SEO**: `robots.txt` that indexes production only, a sitemap per locale with hreflang, a generated share image per locale
+- **Operations**: `/api/health`, daily encrypted database backup by email, preview smoke (health + Lighthouse); fonts vendored, so builds need no network for them
+- Unit, integration (real Postgres), browser, e2e (desktop + mobile) and accessibility (axe) tests
 - `AGENTS.md` (root + per-folder), skills, a reviewer subagent, safety hooks, MCP config
 
 ## Versions
@@ -36,7 +38,10 @@ Dependabot opens one weekly PR with every minor/patch update (`npm-minor-patch`)
 
 Requirements: Node 24, pnpm 10, PostgreSQL 18 (local install or `docker compose up -d`).
 
-Click **Use this template** on GitHub (or `gh repo create my-app --template alexbaumgertner/payload-vercel-template --private --clone`), then rename the product in `package.json` and `src/config/site.ts`.
+Starting a real product? Follow **`docs/new-product.md`** (create from template, rename, Vercel + Neon, env vars per
+environment, agent environments, first cycle). In short: `gh repo create my-app --template alexbaumgertner/payload-vercel-template --private --clone`,
+then `node scripts/rename-product.mjs my-app "My App"`. Template improvements land in `docs/template-changes.md` with
+commit SHAs to cherry-pick.
 
 ```bash
 pnpm install
@@ -57,18 +62,19 @@ Add more users with `pnpm create-admin you@example.com` (there is no sign-up scr
 
 ## Scripts
 
-| Command                      | What it does                                                                |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| `pnpm dev`                   | Dev server on port 3000 (Turbopack)                                         |
-| `pnpm check`                 | typecheck + lint + unit tests — the "am I done?" command                    |
-| `pnpm test:browser`          | Vitest Browser Mode: client components in real Chromium (via Playwright)    |
-| `pnpm test:browser:watch`    | Same, headed, re-runs on save — inspect the iframe with DevTools            |
-| `pnpm test:int`              | Vitest against the `app_test` Postgres database                             |
-| `pnpm test:e2e`              | Playwright, desktop + mobile (`pnpm exec playwright install chromium` once) |
-| `pnpm generate:types`        | Regenerate `src/payload-types.ts` after schema changes                      |
-| `pnpm migrate:create <name>` | Create a migration before merging schema changes                            |
-| `pnpm seed`                  | Idempotent demo data                                                        |
-| `pnpm create-admin <email>`  | Add a user who can sign in with an email code                               |
+| Command                                           | What it does                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `pnpm dev`                                        | Dev server on port 3000 (Turbopack)                                             |
+| `pnpm check`                                      | typecheck + lint + unit tests — the "am I done?" command                        |
+| `pnpm test:browser`                               | Vitest Browser Mode: client components in real Chromium (via Playwright)        |
+| `pnpm test:browser:watch`                         | Same, headed, re-runs on save — inspect the iframe with DevTools                |
+| `pnpm test:int`                                   | Vitest against the `app_test` Postgres database                                 |
+| `pnpm test:e2e`                                   | Playwright, desktop + mobile (`pnpm exec playwright install chromium` once)     |
+| `pnpm generate:types`                             | Regenerate `src/payload-types.ts` after schema changes                          |
+| `pnpm migrate:create <name>`                      | Create a migration before merging schema changes                                |
+| `pnpm seed`                                       | Idempotent demo data                                                            |
+| `pnpm create-admin <email>`                       | Add a user who can sign in with an email code                                   |
+| `node scripts/rename-product.mjs <slug> "<Name>"` | Rename a product created from the template (package, site name, README, AGENTS) |
 
 ## Testing layers
 
@@ -87,7 +93,8 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
 1. Import the repo in Vercel. `vercel.json` sets the build to `pnpm build:vercel` (runs `payload migrate`, then `next build`).
 2. Add the **Neon** integration from the Vercel Marketplace (gives `DATABASE_URL`, with a DB branch per preview) — use the pooled URL.
 3. Add **Vercel Blob** storage (gives `BLOB_READ_WRITE_TOKEN`) so media uploads persist.
-4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL`.
+4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL` (your domain; canonical URLs, sitemap and share images use it).
+   Which variable goes into which environment: `docs/new-product.md` → Environment variables.
 5. Add **Resend** (Vercel Marketplace or resend.com): set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` on a verified domain. In production, login fails loudly without them instead of pretending the code was sent.
 6. Optional — **Sentry**: set `SENTRY_DSN` to turn on error monitoring (server, client, Server Actions). Add
    `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` for readable stack traces. Without `SENTRY_DSN` nothing

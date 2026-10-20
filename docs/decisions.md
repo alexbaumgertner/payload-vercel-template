@@ -2,6 +2,24 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — Template docs: a start-a-product guide, a cherry-pick log, and empty ledgers
+
+**Context.** The first product made from this template wrote its own bootstrap notes; later fixes in sibling repos
+reached the template only by hand-diffing, and derived repos can't `git merge` the template (unrelated histories).
+
+**Decision.** `docs/new-product.md` is the generic path from template to first story (rename, Vercel + Neon with a
+database branch per Preview, env vars per environment, Codex cloud, Claude Code on the web, dev container, Operator,
+first cycle, saving limits). `node scripts/rename-product.mjs <slug> "<Name>"` does the mechanical rename (package,
+`siteConfig.name`, `Metadata.siteName`, README title, AGENTS intro; pure function, unit-tested). `docs/template-changes.md`
+lists every improvement with its commit SHA for `git cherry-pick`; that only works if template PRs are merged with
+merge commits, not squashed. `docs/spikes/_template.md`, `docs/incidents/_template.md` and `docs/security/README.md`
+(empty review ledger) give research answers, post-mortems and security reviews a fixed shape.
+
+**Consequences.** Every template PR adds its rows to `docs/template-changes.md` after its commits exist (a final
+"record sources" commit). Squash-merging a template PR breaks the SHAs in that log.
+Revisit if: products start diverging so much that cherry-picks rarely apply (then publish shared code as a package),
+or a second maintainer joins (then a CHANGELOG with releases beats a log of SHAs).
+
 ## 2026-10-21 — Default share image: one generated card per locale, fonts from the repo
 
 **Context.** Links to the site showed no preview image. A sibling product renders its cards with `next/og` and fonts
