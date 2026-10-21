@@ -23,20 +23,23 @@ guard-rails as pure, separately tested modules and one provider adapter per vend
   `maxOutputTokens`, returns text/object + token usage), `providers/<vendor>.ts` (one `fetch`-based adapter each,
   chosen by `AI_PROVIDER`), and the guard-rails `fence.ts`, `budget.ts`, `ledger.ts`, `retry.ts`, `coalesce.ts`,
   `pricing.ts`. Features call `complete()` from their `service.ts`, never a vendor API.
-- **Off by default**, like Resend/Sentry/Blob/analytics: `AI_PROVIDER=none` (default) or no `AI_API_KEY` →
-  `isAiEnabled()` is false, `complete()` never touches the network and features return the error code `ai_disabled`.
+- **Off by default**, like Resend/Sentry/Blob/analytics: `AI_PROVIDER=none` (default) → `isAiEnabled()` is false,
+  `complete()` never touches the network and features return the error code `ai_disabled`. `AI_PROVIDER` is the
+  only switch; a real provider without `AI_API_KEY` fails env parsing instead of silently turning AI off.
 - **Money is integer micro-USD** everywhere (estimate, ledger, limits), so the atomic counter stays an integer and
   sums don't drift. The estimate is ours (price table × tokens), not the vendor's invoice — a guard against
   overspend, not accounting.
-- **The ledger is the one place allowed to run SQL.** Atomic "add only if it stays under the limit" needs a
-  conditional upsert; Payload's Local API can only read-then-write, which races (see the story's "Raw SQL vs
-  Payload"). The counters table is a hidden Payload collection (schema and migrations stay Payload's), and a single
-  statement goes through `payload.db.drizzle` inside `ledger.ts`. A unit test keeps that the only file that does so.
+- **The ledger joins the backup as the only runtime code allowed to run SQL.** Atomic "add only if it stays under
+  the limit" needs a conditional upsert on both the insert and the conflict branch; Payload's Local API can only
+  read-then-write, which races (see the story's "Raw SQL vs Payload"). The counters table is a hidden Payload
+  collection (schema and migrations stay Payload's). `ledger.ts` takes a client from `payload.db.pool`, like
+  `src/lib/backup/`, and reserves every counter in one transaction, rolling back if any one refuses. A unit test
+  over runtime source allows SQL only in the ledger, the backup files and generated migrations.
 - No new dependency: a provider SDK can be proposed later behind the same `complete()` signature.
 
 **Consequences (if approved).** New env vars (`AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_MONTHLY_LIMIT_USD`,
-`AI_USER_MONTHLY_LIMIT_USD`) in `src/lib/env.ts` + `.env.example`; a narrow, documented exception to the "No raw
-SQL, no Drizzle calls" rule in `AGENTS.md`; a migration for the counters collection; a new baseline row; a manual
+`AI_USER_MONTHLY_LIMIT_USD`) in `src/lib/env.ts` + `.env.example`; the ledger added next to the backup exception to the
+"No raw SQL, no Drizzle calls" rule in `AGENTS.md`; a migration for the counters collection; a new baseline row; a manual
 `pnpm ai:judge` script whose reports live in `docs/quality/<date>/`. Coalescing is per server instance only.
 Revisit if: a product needs streaming or tool use (`complete()` is request/response only), Payload gains an atomic
 conditional increment, or a provider SDK becomes worth its weight across all products.
