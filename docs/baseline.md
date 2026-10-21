@@ -18,6 +18,7 @@ What every product built from this template gets out of the box. Update this tab
 | Health             | done    | `GET /api/health`: DB round-trip, 200/503, uncached, not localized; used by preview smoke                                                                    |
 | Operations         | done    | Cron routes fail closed without `CRON_SECRET`; non-login mail gated on previews and the sandbox sender                                                       |
 | Dependency updates | done    | Dependabot weekly: one PR with all minor/patch updates, each major separately; `@types/node` follows Node 24                                                 |
+| AI                 | none    | Proposed, not built: `src/lib/ai/` guard-rails in `docs/stories/004-ai-baseline.md` (draft)                                                                  |
 
 Features are specified in `docs/stories/` — each acceptance criterion maps to a named test.
 Agent safety: shell + MCP guards with tests (Claude Code, Cursor), env-file permissions, Codex Stop check; known gaps

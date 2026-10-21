@@ -2,6 +2,48 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — PROPOSED: provider-agnostic `src/lib/ai/`, off without a key
+
+> **Status: PROPOSED — not implemented.** No code, env vars or dependencies exist yet. Acceptance criteria live in
+> `docs/stories/004-ai-baseline.md` (`status: draft`). Approving that story turns this entry into a decision.
+
+**Context.** Three products built near this template call an LLM, and each one rebuilt the same guard-rails, each with
+its own blind spot: one fenced untrusted text but checked the spend limit and recorded the cost in two separate
+steps (two concurrent requests can both pass the check); one reserved usage atomically, but with raw SQL outside
+any ORM; one wrapped untrusted text in a tag and stripped lookalikes, but had no budget at all. The next product
+should start with the union of what worked.
+
+**Options.** (a) Keep it per product: each one copies whatever its predecessor had. (b) Pick a provider SDK (Vercel AI
+SDK, an official vendor SDK) and build on it. (c) A small, provider-agnostic `src/lib/ai/` built on `fetch`, with the
+guard-rails as pure, separately tested modules and one provider adapter per vendor.
+
+**Decision (proposed).** (c):
+
+- `src/lib/ai/` holds `client.ts` (one `complete()` entry point: system + user prompt, optional Zod output schema,
+  `maxOutputTokens`, returns text/object + token usage), `providers/<vendor>.ts` (one `fetch`-based adapter each,
+  chosen by `AI_PROVIDER`), and the guard-rails `fence.ts`, `budget.ts`, `ledger.ts`, `retry.ts`, `coalesce.ts`,
+  `pricing.ts`. Features call `complete()` from their `service.ts`, never a vendor API.
+- **Off by default**, like Resend/Sentry/Blob/analytics: `AI_PROVIDER=none` (default) → `isAiEnabled()` is false,
+  `complete()` never touches the network and features return the error code `ai_disabled`. `AI_PROVIDER` is the
+  only switch; a real provider without `AI_API_KEY` fails env parsing instead of silently turning AI off.
+- **Money is integer micro-USD** everywhere (estimate, ledger, limits), so the atomic counter stays an integer and
+  sums don't drift. The estimate is ours (price table × tokens), not the vendor's invoice — a guard against
+  overspend, not accounting.
+- **The ledger joins the backup as the only runtime code allowed to run SQL.** Atomic "add only if it stays under
+  the limit" needs a conditional upsert on both the insert and the conflict branch; Payload's Local API can only
+  read-then-write, which races (see the story's "Raw SQL vs Payload"). The counters table is a hidden Payload
+  collection (schema and migrations stay Payload's). `ledger.ts` takes a client from `payload.db.pool`, like
+  `src/lib/backup/`, and reserves every counter in one transaction, rolling back if any one refuses. A unit test
+  over runtime source allows SQL only in the ledger, the backup files and generated migrations.
+- No new dependency: a provider SDK can be proposed later behind the same `complete()` signature.
+
+**Consequences (if approved).** New env vars (`AI_PROVIDER`, `AI_API_KEY`, `AI_MODEL`, `AI_MONTHLY_LIMIT_USD`,
+`AI_USER_MONTHLY_LIMIT_USD`) in `src/lib/env.ts` + `.env.example`; the ledger added next to the backup exception to the
+"No raw SQL, no Drizzle calls" rule in `AGENTS.md`; a migration for the counters collection; a new baseline row; a manual
+`pnpm ai:judge` script whose reports live in `docs/quality/<date>/`. Coalescing is per server instance only.
+Revisit if: a product needs streaming or tool use (`complete()` is request/response only), Payload gains an atomic
+conditional increment, or a provider SDK becomes worth its weight across all products.
+
 ## 2026-10-21 — Template docs: a start-a-product guide, a cherry-pick log, and empty ledgers
 
 **Context.** The first product made from this template wrote its own bootstrap notes; later fixes in sibling repos
