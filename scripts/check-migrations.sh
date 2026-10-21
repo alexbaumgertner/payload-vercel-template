@@ -6,7 +6,7 @@
 #   createdb app_migrations_check
 #   DATABASE_URL=postgresql://app:app@127.0.0.1:5432/app_migrations_check bash scripts/check-migrations.sh
 #
-# Findings behind the checks (Payload 3.90, verified 2026-10-20, see docs/decisions.md):
+# Findings behind the checks (Payload 3.90, verified 2026-10-20; re-checked on 3.91.0 2026-10-21; docs/decisions.md):
 # - `payload migrate` does not push: the CLI sets PAYLOAD_MIGRATING=true before init, and the
 #   Postgres adapter skips the dev push then, whatever PAYLOAD_DB_PUSH says. Push stays off here
 #   anyway, so a later Payload change can't quietly mend broken migrations.

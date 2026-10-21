@@ -2,6 +2,96 @@
 
 Short log of choices that shape the codebase. Newest first. One entry = what we chose, why, and what would make us revisit it.
 
+## 2026-10-21 — Template docs: a start-a-product guide, a cherry-pick log, and empty ledgers
+
+**Context.** The first product made from this template wrote its own bootstrap notes; later fixes in sibling repos
+reached the template only by hand-diffing, and derived repos can't `git merge` the template (unrelated histories).
+
+**Decision.** `docs/new-product.md` is the generic path from template to first story (rename, Vercel + Neon with a
+database branch per Preview, env vars per environment, Codex cloud, Claude Code on the web, dev container, Operator,
+first cycle, saving limits). `node scripts/rename-product.mjs <slug> "<Name>"` does the mechanical rename (package,
+`siteConfig.name`, `Metadata.siteName`, README title, AGENTS intro; pure function, unit-tested). `docs/template-changes.md`
+lists every improvement with its commit SHA for `git cherry-pick`; that only works if template PRs are merged with
+merge commits, not squashed. `docs/spikes/_template.md`, `docs/incidents/_template.md` and `docs/security/README.md`
+(empty review ledger) give research answers, post-mortems and security reviews a fixed shape.
+
+**Consequences.** Every template PR adds its rows to `docs/template-changes.md` after its commits exist (a final
+"record sources" commit). Squash-merging a template PR breaks the SHAs in that log.
+Revisit if: products start diverging so much that cherry-picks rarely apply (then publish shared code as a package),
+or a second maintainer joins (then a CHANGELOG with releases beats a log of SHAs).
+
+## 2026-10-21 — Default share image: one generated card per locale, fonts from the repo
+
+**Context.** Links to the site showed no preview image. A sibling product renders its cards with `next/og` and fonts
+bundled in the repo, because the default font lacked its scripts and was otherwise fetched at render time.
+
+**Decision.** `src/app/(frontend)/[locale]/opengraph-image.tsx` renders `renderSiteCard()` (`src/lib/og-image.tsx`):
+`siteConfig.name`, the localized `Metadata.tagline`, and the site host, 1200×630 PNG, prerendered per locale
+(`generateStaticParams`). Fonts: static Geist 400/600 TTFs in `src/fonts/files/` (Satori reads neither WOFF2 nor
+variable weights). Next 16.4's `next/og` bundles Geist Regular with Cyrillic, so the files are for the semi-bold weight
+and so the card doesn't depend on Next's internal default (older versions fell back to a Latin-only font and fetched
+missing glyphs from Google Fonts). Next links the default locale's card as `/en/opengraph-image-…`; `src/proxy.ts`
+skips `*/opengraph-image*`, otherwise the locale proxy 307s every crawler to an unprefixed URL. CSP: nothing changes —
+the card is rendered on the server and the page only references its URL in `<meta>`.
+
+**Consequences.** Absolute image URLs come from `metadataBase` = `siteUrl()`; set `NEXT_PUBLIC_SITE_URL` in Production
+so cards point at the real domain. A page that needs its own card adds an `opengraph-image.tsx` next to it.
+Revisit if: a page needs per-document cards (title, date), or a product changes typefaces (replace the TTFs too).
+
+## 2026-10-21 — SEO: robots and sitemap per environment, hreflang from one helper
+
+**Context.** The site had hreflang in the page head but no `robots.txt` or sitemap, and `metadataBase` read
+`NEXT_PUBLIC_SITE_URL` only (localhost on previews where it is unset). Vercel marks previews `noindex` by header, but
+nothing said so for a custom domain, and nothing told crawlers where the pages are.
+
+**Decision.** `src/app/robots.ts` + `src/app/sitemap.ts` over pure builders in `src/lib/seo.ts`. Robots: indexing only
+when `VERCEL_ENV=production` (allow `/`, disallow `/admin` and `/api/`, advertise the sitemap); everything else
+disallows `/`. Sitemap: every public page once per locale, each with the hreflang map from `languageAlternates()` in
+`src/i18n/alternates.ts` (the same helper `alternatesFor` uses for the page head), `lastModified` from the newest
+published changelog entry (`updatedAt` or `publishedAt`, read with `overrideAccess: false`). Both routes are
+`force-dynamic`: robots must answer for the deployment it runs on, and the sitemap is crawled rarely.
+`siteUrl()` (`src/lib/site-url.ts`): `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` →
+localhost; `metadataBase` uses it too. No `host` directive (Yandex dropped it).
+
+**Consequences.** New public pages must be added to `src/app/sitemap.ts` (and `tests/helpers/public-pages.ts`; the
+e2e compares the two). Production indexability is still only checked by hand — preview smoke can't see it.
+Revisit if: pages per changelog entry or other content pages appear (one sitemap entry per document), or the sitemap
+passes a few thousand URLs (split with `generateSitemaps`).
+
+## 2026-10-21 — Local fonts: Geist is vendored, the build fetches nothing from Google Fonts
+
+**Context.** `next/font/google` downloads fonts during `next build`. Google can return extensionless URLs that break
+Next's loader ([Next.js #99114](https://github.com/vercel/next.js/issues/99114)); on 2026-10-15 that failed a derived
+product's dependency-update Preview and its local production build. Offline or behind a proxy, the build fails too.
+
+**Decision.** `src/fonts/site.ts` loads Geist and Geist Mono with `next/font/local` from variable WOFF2 files (Latin +
+Cyrillic, weight 100–900) in `src/fonts/files/`, with their OFL licenses and pinned upstream in `src/fonts/README.md`.
+CSS variable names (`--font-geist-sans`, `--font-geist-mono`) are unchanged. `tests/unit/fonts.unit.spec.ts` fails if
+`next/font/google` is imported again or a file lacks its license/README row. Verified: with a dead `HTTPS_PROXY`
+(`NODE_USE_ENV_PROXY=1`), `pnpm build` failed with Google fonts and passes with local ones.
+
+**Consequences.** No new CSP origin or runtime request. ~140 KB of font files in the repo. Updating Geist means
+refreshing files and licenses by hand from a pinned commit.
+Revisit if: a product changes typefaces (put the new files and licenses in `src/fonts/` the same way), or the Google
+loader is fixed and vendoring stops paying for itself.
+
+## 2026-10-21 — Dependencies: pins follow a derived product's green CI; one Dependabot group for minor/patch
+
+**Context.** The template's pins (Payload 3.90.2, Next 16.3.8, `@types/node` 22) fell behind a product built from it,
+which runs Payload 3.91.0 / Next 16.4.2 / `@types/node` 24 green in CI. Four Dependabot groups (payload, react, next,
+dev-tools) meant up to four PRs a week to review alone, and Dependabot proposed `@types/node` 26 for a Node 24 runtime.
+
+**Decision.** Bump to the derived product's versions (README → Versions). Dependabot: a single `npm-minor-patch`
+group (`patterns: ['*']`, minor + patch); majors stay ungrouped, one PR each. `@types/node` majors are ignored — the
+types follow the runtime (`engines`, `.nvmrc`), bumped by hand with it. pnpm warns that Vite's optional `esbuild`
+peer (`^0.27 || ^0.28`) resolves to 0.25 (pulled by `drizzle-kit`); Vite 8 bundles with Rolldown, nothing breaks.
+Re-ran the 2026-10-20 migrate experiment on 3.91.0: with the last migration moved aside and `PAYLOAD_DB_PUSH=true`,
+`payload migrate` still did not push its column.
+
+**Consequences.** One red package blocks the whole weekly group: find it in the CI log, then either fix it in the
+group PR or add an `ignore` for that version and let the rest merge. Majors still need reading the changelog.
+Revisit if: group PRs are red more often than not (split out the offender), or the runtime moves to Node 26.
+
 ## 2026-10-20 — Preview smoke: health + Lighthouse on every Vercel Preview, SEO without `is-crawlable`
 
 **Context.** CI tests a dev server; nothing looked at a real deployment (production build, Neon branch, Vercel

@@ -1,7 +1,8 @@
 {
   "Metadata": {
     "siteName": "Indie Starter",
-    "description": "Готовый к продакшену стартер на Next.js 16 + Payload 3 и Postgres, настроенный для разработки с AI в Cursor и Claude Code."
+    "description": "Готовый к продакшену стартер на Next.js 16 + Payload 3 и Postgres, настроенный для разработки с AI в Cursor и Claude Code.",
+    "tagline": "Запустите SaaS на этих выходных, а не в следующем квартале."
   },
   "Header": {
     "home": "Indie Starter — на главную",

@@ -16,6 +16,9 @@ so Claude Code loads them when working in that folder. This file only adds what 
 - **Admin:** `(payload)/` is generated. Custom pieces are wired in `src/payload.config.ts` (`beforeLogin` =
   `EmailCodeLogin`, logout = `LogoutButton`); `next.config.ts` applies `security-headers.ts` and, only with
   `SENTRY_DSN`, `withSentryConfig`.
+- **SEO:** `src/app/robots.ts` / `sitemap.ts` (force-dynamic) → pure builders in `src/lib/seo.ts`; hreflang from
+  `src/i18n/alternates.ts`; absolute URLs from `siteUrl()` (`src/lib/site-url.ts`, also `metadataBase`). Share image:
+  `[locale]/opengraph-image.tsx` → `src/lib/og-image.tsx` (TTFs in `src/fonts/files/`); `src/proxy.ts` skips it.
 - **Content revalidation:** collection `afterChange`/`afterDelete` hooks (see `ChangelogEntries.ts`) loop over
   `locales` and revalidate `/${locale}` paths, skipping when `req.context.disableRevalidate` is set (scripts, tests).
 
@@ -38,19 +41,24 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
 
 ## Claude Code harness in this repo (`.claude/settings.json`)
 
-- **Hooks:** `PreToolUse` Bash → `guard-shell.mjs`; `mcp__.*` → `guard-mcp.mjs` (allow-list in
+- **Hooks:** `SessionStart` → `cloud-pg-start.sh`, only when `CLAUDE_CODE_REMOTE=true` (Claude Code on the web);
+  `PreToolUse` Bash → `guard-shell.mjs`; `mcp__.*` → `guard-mcp.mjs` (allow-list in
   `scripts/agent-hooks/policy.mjs`); `PostToolUse` edits → prettier; `Stop` → `pnpm typecheck` if TS files changed,
   and blocks finishing until it passes. A blocked command is intentional — ask the human, don't rephrase around it.
 - **Files:** `.env.development.local` / `.env.test.local` may be read and written (per-checkout DB and port, see
-  "Parallel checkouts"). **Denied:** `.env.production*` and `.vercel/**` (read, edit, write). `.env` asks first — use
+  "Parallel checkouts"). **Denied:** `.env.production*` and `.vercel/**` (read, edit, write). `.env` is not allow-listed, so it prompts — use
   `.env.example` and `src/lib/env.ts` instead. The MCP guard denies Neon/Vercel write and secret tools.
 - **Skills:** `/feature` (story → approval → failing tests → code), `/new-collection`, `/ship` (check, types,
   migration reminder, commit, push); auto-loaded `payload` and `db-migrations`. Subagent: `reviewer` (read-only).
+- **Allow-listed** without a prompt: `pnpm typecheck|lint|check|test:unit|test:int|test:e2e|generate:types|generate:importmap`,
+  `git status|diff|log`. `.claude/launch.json` starts `pnpm dev` for the preview pane.
 - Changing guard rules means updating `tests/unit/agent-guards.unit.spec.ts`.
 
 ## Gotchas
 
 - Edits to `next.config.ts` or `src/lib/security-headers.ts` need a dev-server restart (not hot-reloaded).
+- Under an orchestrator, its `PORT` and `NODE_ENV=production` win over `.env.*.local`: unset both before `pnpm dev` /
+  `pnpm test:e2e`. On a loaded machine run e2e like CI, `--workers 1` (`docs/new-product.md` → Operator).
 - `src/lib/env.ts` parses at import time: a missing `DATABASE_URL`/`PAYLOAD_SECRET` throws in any script or test.
 - Optional integrations are off when their env var is unset: Resend (codes print to the console), Vercel Blob
   (local media), Sentry (`SENTRY_DSN`), analytics (`ANALYTICS_PROVIDER=none`). Keep them no-ops when unset — e2e checks it.

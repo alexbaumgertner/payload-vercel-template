@@ -1,7 +1,34 @@
-# Template changes ported from sibling repos
+# Template changes
 
-Where generic fixes in this template came from, so the next port can diff against the source. Product names
-appear only in this file. Newest first.
+Log of template improvements, newest first: what changed, where it came from, and the commits to cherry-pick.
+Product names appear only in this file.
+
+**Pulling a change into a product made from this template.** GitHub's "Use this template" copies files, not history,
+so the repos are unrelated — cherry-pick, don't merge:
+
+```bash
+git remote add template https://github.com/alexbaumgertner/payload-vercel-template
+git fetch template
+git cherry-pick <sha>   # oldest first when an item lists several; resolve conflicts in files the product changed
+pnpm install && pnpm check && pnpm test:int && pnpm test:e2e
+```
+
+SHAs are those on the template's `main`. Template PRs are merged with merge commits (not squashed) so branch SHAs
+stay valid; a phase entry lists one commit per item. After cherry-picking, re-run `pnpm generate:types` if the
+item touched collections, and read the item's entry in `docs/decisions.md`.
+
+## 2026-10-21 — Phase 4: SEO, fonts, dependencies, template docs
+
+| Item                                | Commit    | Source (repo@sha: path)                                                                                                                                                          | What changed in adapting                                                                                                                                                                        | Tests                                                                                             |
+| ----------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Dependencies + one Dependabot group | `d5da9fc` | murad-portal@8c8bed7: `package.json`, `.github/dependabot.yml`                                                                                                                   | Same pins (Payload 3.91.0, Next 16.4.2, `@types/node` 24); `@types/node` majors ignored; re-ran the migrate-does-not-push experiment on 3.91                                                    | all suites; e2e `--workers 1`                                                                     |
+| Vendored fonts                      | `61ab566` | murad-portal@8c8bed7: `src/fonts/` (`site.ts`, `README.md`, `files/geist*.woff2`, `licenses/geist*.txt`), `docs/decisions.md` "Local fonts"                                      | Only Geist + Geist Mono; guard test; header padding at ≤340px (current Geist has wider Cyrillic than the Google-served file)                                                                    | `tests/unit/fonts.unit.spec.ts`; `pnpm build` with a dead `HTTPS_PROXY` (red before, green after) |
+| robots + sitemap                    | `bb3f3c7` | hht-research-platform@aa0dc3d: `apps/web/src/lib/seo.ts`, `apps/web/src/lib/siteUrl.ts`, `apps/web/src/app/{robots,sitemap}.ts`                                                  | hreflang from the template's `alternates.ts` (new `languageAlternates()`), unprefixed default locale, Vercel production-domain fallback, no `host`, changelog date with `overrideAccess: false` | `tests/unit/seo.unit.spec.ts`, `tests/e2e/seo.e2e.spec.ts`, `tests/int/changelog.int.spec.ts`     |
+| Default share image                 | `ad87c73` | hht-research-platform@aa0dc3d: `apps/web/src/app/[locale]/opengraph-image.tsx`, `apps/web/src/lib/shareCards.tsx`, `apps/web/assets/fonts/`                                      | Geist TTFs instead of IBM Plex; site host line; prerendered per locale; proxy skips `*/opengraph-image*` (else 307)                                                                             | `tests/unit/og-image.unit.spec.ts`, `tests/e2e/seo.e2e.spec.ts`                                   |
+| Template docs + rename script       | `15b91b6` | murad-portal@8c8bed7: `docs/bootstrap.md`, `docs/spikes/002-*.md`; hht-research-platform@aa0dc3d: `docs/incidents/2026-09-pipeline-silent-failure.md`, `docs/security/README.md` | English and generic; env vars per environment; Operator section from this phase's runs; rename script is new                                                                                    | `tests/unit/rename-product.unit.spec.ts`                                                          |
+
+Not ported: murad-portal's other 35 font families and planner font loader (product-specific), HHT's project/issue
+share cards and `/r/` disallow (product routes), murad-portal's Russian bootstrap steps for its own epic.
 
 ## 2026-10-20 — Phase 3: testing
 
