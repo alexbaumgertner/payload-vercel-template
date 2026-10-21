@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { publicPages } from '../helpers/public-pages'
+
 test.skip(({ browserName }) => browserName !== 'chromium', 'CDP is Chromium-only')
 
 function collectProblems(page: Page) {
@@ -14,7 +16,7 @@ function collectProblems(page: Page) {
   return problems
 }
 
-for (const path of ['/', '/changelog']) {
+for (const path of publicPages) {
   test(`${path} has no console errors or server failures`, async ({ page }) => {
     const problems = collectProblems(page)
     await page.goto(path)

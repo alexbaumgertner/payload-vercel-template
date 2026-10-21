@@ -1,20 +1,18 @@
 import type { Metadata, Viewport } from 'next'
 import { hasLocale, NextIntlClientProvider } from 'next-intl'
 import { getTranslations } from 'next-intl/server'
-import { Geist, Geist_Mono } from 'next/font/google'
 import { notFound } from 'next/navigation'
 import type { ReactNode } from 'react'
 
 import { PageViews } from '@/components/PageViews/PageViews'
 import { SiteFooter } from '@/components/SiteFooter/SiteFooter'
 import { SiteHeader } from '@/components/SiteHeader/SiteHeader'
+import { geistMono, geistSans } from '@/fonts/site'
 import { routing } from '@/i18n/routing'
 import { analyticsProvider } from '@/lib/analytics'
+import { siteUrl } from '@/lib/site-url'
 
 import '../globals.css'
-
-const geistSans = Geist({ subsets: ['latin', 'cyrillic'], variable: '--font-geist-sans' })
-const geistMono = Geist_Mono({ subsets: ['latin', 'cyrillic'], variable: '--font-geist-mono' })
 
 type LayoutProps = { children: ReactNode; params: Promise<{ locale: string }> }
 
@@ -27,7 +25,7 @@ export async function generateMetadata({ params }: LayoutProps): Promise<Metadat
   if (!hasLocale(routing.locales, locale)) return {}
   const t = await getTranslations({ locale, namespace: 'Metadata' })
   return {
-    metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'),
+    metadataBase: new URL(siteUrl()),
     title: { default: t('siteName'), template: `%s · ${t('siteName')}` },
     description: t('description'),
   }

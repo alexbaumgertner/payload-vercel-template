@@ -9,6 +9,12 @@ const deny = (reason) => /** @type {Verdict} */ ({ allowed: false, reason })
 // Start of a command: beginning of the line or after a shell separator.
 const CMD = String.raw`(?:^|[;&|(]\s*|\bnpx\s+|\bpnpm\s+(?:exec\s+|dlx\s+)?)`
 
+// `DATABASE_URL=postgres://…@127.0.0.1|localhost[:port]/<scratch db>` right before the command.
+// Scratch databases: `app_test`, a checkout's `app_<suffix>_test` (scripts/local-env.sh) and `app_migr*`.
+const LOCAL_SCRATCH_MIGRATE = new RegExp(
+  String.raw`^\s*(?:\w+=\S+\s+)*DATABASE_URL=["']?postgres(?:ql)?:\/\/[^\s@/]*@(?:127\.0\.0\.1|localhost)(?::\d+)?\/(?:app_test|app_\w+_test|app_migr\w*)["']?(?:\s+\w+=\S+)*\s+(?:pnpm\s+)?(?:exec\s+)?(?:payload\s+)?migrate:(?:fresh|reset|down)\b`,
+)
+
 const SHELL_RULES = [
   {
     pattern:
@@ -18,6 +24,11 @@ const SHELL_RULES = [
   {
     pattern: /\bgit\s+push\b(?=.*(?:\s--force(?!-with-lease)\b|\s-[a-zA-Z]*f\b|\s\+\S))/,
     reason: 'force push (use --force-with-lease on your own branch)',
+  },
+  {
+    // `origin main`, `HEAD:main`, `+main`, `refs/heads/main`; not `feature/main-page`.
+    pattern: /\bgit\s+push\b[^;&|\n]*\s(?:\S*:|\+)?(?:refs\/heads\/)?(?:main|master)(?![\w/.-])/,
+    reason: 'push to the main branch — push your branch and open a PR',
   },
   {
     pattern: /\bgit\s+reset\s+--hard\s+(?:origin|upstream)\//,
@@ -30,10 +41,18 @@ const SHELL_RULES = [
   {
     pattern: /\bmigrate:(?:fresh|reset|down)\b/,
     reason: 'drops or rolls back data — run it yourself if you really mean it',
+    // Allowed only against a local scratch database named in the same command segment; the dev
+    // database `app` and anything remote stay blocked.
+    unless: LOCAL_SCRATCH_MIGRATE,
   },
   {
     pattern: /postgres(?:ql)?:\/\/\S*neon\.tech/i,
     reason: 'direct access to a Neon (production) database',
+  },
+  {
+    // Human-only switch that lets local tooling connect to a remote (production) database.
+    pattern: /(?:^|[;&|(\n]\s*|\b(?:env|export)\s+)(?:\w+=\S*\s+)*ALLOW_REMOTE_DATABASE=["']?1\b/,
+    reason: 'ALLOW_REMOTE_DATABASE=1 points local tooling at a remote database — a human sets it',
   },
   {
     pattern: new RegExp(`${CMD}neon(?:ctl)?\\s+(?!(?:--help|-h|help|docs)\\b)\\S`),
@@ -44,15 +63,30 @@ const SHELL_RULES = [
     reason: 'production deploys and removals are done by a human',
   },
   {
-    pattern: new RegExp(`${CMD}vercel\\s+env\\s+(?:pull|add|rm|remove|update)\\b`),
+    pattern: new RegExp(`${CMD}vercel\\s+(?:env\\s+)?pull\\b`),
+    reason: 'writes production secrets into the checkout',
+  },
+  {
+    pattern: new RegExp(`${CMD}vercel\\s+env\\s+(?:add|rm|remove|update)\\b`),
     reason: 'touches deployment secrets',
   },
 ]
 
 /** @param {string} command @returns {Verdict} */
 export function checkShellCommand(command) {
-  const hit = SHELL_RULES.find((rule) => rule.pattern.test(command))
+  const hit = SHELL_RULES.find(
+    (rule) => rule.pattern.test(command) && !(rule.unless && everySegmentMatches(command, rule)),
+  )
   return hit ? deny(hit.reason) : ALLOW
+}
+
+// Every shell segment that trips the rule must satisfy its exception: an allowed local
+// segment cannot smuggle in a second one (`a && b`, `a; b`, `a | b`, a new line, `$(b)`, `` `b` ``).
+function everySegmentMatches(command, rule) {
+  return command
+    .split(/&&|\|\||[;&|\n`()]/)
+    .filter((segment) => rule.pattern.test(segment))
+    .every((segment) => rule.unless.test(segment))
 }
 
 // --- MCP ---------------------------------------------------------------------------------

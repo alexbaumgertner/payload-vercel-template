@@ -9,34 +9,17 @@ updates:
     commit-message:
       prefix: chore
       include: scope
-    # Groups only take minor/patch updates, so majors of next, react, typescript and
-    # payload (and everything else) arrive as separate, ungrouped PRs.
+    # One weekly PR for every minor/patch update (fewer PRs for a solo maintainer). Groups only
+    # take minor/patch, so each major (next, react, typescript, payload …) is its own PR.
     groups:
-      payload:
-        patterns:
-          - payload
-          - '@payloadcms/*'
+      npm-minor-patch:
+        patterns: ['*']
         update-types: [minor, patch]
-      react:
-        patterns:
-          - react
-          - react-dom
-          - '@types/react'
-          - '@types/react-dom'
-        update-types: [minor, patch]
-      next:
-        patterns:
-          - next
-          - eslint-config-next
-        update-types: [minor, patch]
-      dev-tools:
-        dependency-type: development
-        exclude-patterns:
-          - typescript
-          - '@types/react'
-          - '@types/react-dom'
-          - eslint-config-next
-        update-types: [minor, patch]
+    ignore:
+      # @types/node follows the Node runtime (24.x, `engines` + `.nvmrc`), not npm's latest major.
+      # Bump it by hand together with the runtime.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /

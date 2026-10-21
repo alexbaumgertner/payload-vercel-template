@@ -41,6 +41,387 @@ SQL, no Drizzle calls" rule in `AGENTS.md`; a migration for the counters collect
 Revisit if: a product needs streaming or tool use (`complete()` is request/response only), Payload gains an atomic
 conditional increment, or a provider SDK becomes worth its weight across all products.
 
+## 2026-10-21 — Template docs: a start-a-product guide, a cherry-pick log, and empty ledgers
+
+**Context.** The first product made from this template wrote its own bootstrap notes; later fixes in sibling repos
+reached the template only by hand-diffing, and derived repos can't `git merge` the template (unrelated histories).
+
+**Decision.** `docs/new-product.md` is the generic path from template to first story (rename, Vercel + Neon with a
+database branch per Preview, env vars per environment, Codex cloud, Claude Code on the web, dev container, Operator,
+first cycle, saving limits). `node scripts/rename-product.mjs <slug> "<Name>"` does the mechanical rename (package,
+`siteConfig.name`, `Metadata.siteName`, README title, AGENTS intro; pure function, unit-tested). `docs/template-changes.md`
+lists every improvement with its commit SHA for `git cherry-pick`; that only works if template PRs are merged with
+merge commits, not squashed. `docs/spikes/_template.md`, `docs/incidents/_template.md` and `docs/security/README.md`
+(empty review ledger) give research answers, post-mortems and security reviews a fixed shape.
+
+**Consequences.** Every template PR adds its rows to `docs/template-changes.md` after its commits exist (a final
+"record sources" commit). Squash-merging a template PR breaks the SHAs in that log.
+Revisit if: products start diverging so much that cherry-picks rarely apply (then publish shared code as a package),
+or a second maintainer joins (then a CHANGELOG with releases beats a log of SHAs).
+
+## 2026-10-21 — Default share image: one generated card per locale, fonts from the repo
+
+**Context.** Links to the site showed no preview image. A sibling product renders its cards with `next/og` and fonts
+bundled in the repo, because the default font lacked its scripts and was otherwise fetched at render time.
+
+**Decision.** `src/app/(frontend)/[locale]/opengraph-image.tsx` renders `renderSiteCard()` (`src/lib/og-image.tsx`):
+`siteConfig.name`, the localized `Metadata.tagline`, and the site host, 1200×630 PNG, prerendered per locale
+(`generateStaticParams`). Fonts: static Geist 400/600 TTFs in `src/fonts/files/` (Satori reads neither WOFF2 nor
+variable weights). Next 16.4's `next/og` bundles Geist Regular with Cyrillic, so the files are for the semi-bold weight
+and so the card doesn't depend on Next's internal default (older versions fell back to a Latin-only font and fetched
+missing glyphs from Google Fonts). Next links the default locale's card as `/en/opengraph-image-…`; `src/proxy.ts`
+skips `*/opengraph-image*`, otherwise the locale proxy 307s every crawler to an unprefixed URL. CSP: nothing changes —
+the card is rendered on the server and the page only references its URL in `<meta>`.
+
+**Consequences.** Absolute image URLs come from `metadataBase` = `siteUrl()`; set `NEXT_PUBLIC_SITE_URL` in Production
+so cards point at the real domain. A page that needs its own card adds an `opengraph-image.tsx` next to it.
+Revisit if: a page needs per-document cards (title, date), or a product changes typefaces (replace the TTFs too).
+
+## 2026-10-21 — SEO: robots and sitemap per environment, hreflang from one helper
+
+**Context.** The site had hreflang in the page head but no `robots.txt` or sitemap, and `metadataBase` read
+`NEXT_PUBLIC_SITE_URL` only (localhost on previews where it is unset). Vercel marks previews `noindex` by header, but
+nothing said so for a custom domain, and nothing told crawlers where the pages are.
+
+**Decision.** `src/app/robots.ts` + `src/app/sitemap.ts` over pure builders in `src/lib/seo.ts`. Robots: indexing only
+when `VERCEL_ENV=production` (allow `/`, disallow `/admin` and `/api/`, advertise the sitemap); everything else
+disallows `/`. Sitemap: every public page once per locale, each with the hreflang map from `languageAlternates()` in
+`src/i18n/alternates.ts` (the same helper `alternatesFor` uses for the page head), `lastModified` from the newest
+published changelog entry (`updatedAt` or `publishedAt`, read with `overrideAccess: false`). Both routes are
+`force-dynamic`: robots must answer for the deployment it runs on, and the sitemap is crawled rarely.
+`siteUrl()` (`src/lib/site-url.ts`): `NEXT_PUBLIC_SITE_URL` → `VERCEL_PROJECT_PRODUCTION_URL` → `VERCEL_URL` →
+localhost; `metadataBase` uses it too. No `host` directive (Yandex dropped it).
+
+**Consequences.** New public pages must be added to `src/app/sitemap.ts` (and `tests/helpers/public-pages.ts`; the
+e2e compares the two). Production indexability is still only checked by hand — preview smoke can't see it.
+Revisit if: pages per changelog entry or other content pages appear (one sitemap entry per document), or the sitemap
+passes a few thousand URLs (split with `generateSitemaps`).
+
+## 2026-10-21 — Local fonts: Geist is vendored, the build fetches nothing from Google Fonts
+
+**Context.** `next/font/google` downloads fonts during `next build`. Google can return extensionless URLs that break
+Next's loader ([Next.js #99114](https://github.com/vercel/next.js/issues/99114)); on 2026-10-15 that failed a derived
+product's dependency-update Preview and its local production build. Offline or behind a proxy, the build fails too.
+
+**Decision.** `src/fonts/site.ts` loads Geist and Geist Mono with `next/font/local` from variable WOFF2 files (Latin +
+Cyrillic, weight 100–900) in `src/fonts/files/`, with their OFL licenses and pinned upstream in `src/fonts/README.md`.
+CSS variable names (`--font-geist-sans`, `--font-geist-mono`) are unchanged. `tests/unit/fonts.unit.spec.ts` fails if
+`next/font/google` is imported again or a file lacks its license/README row. Verified: with a dead `HTTPS_PROXY`
+(`NODE_USE_ENV_PROXY=1`), `pnpm build` failed with Google fonts and passes with local ones.
+
+**Consequences.** No new CSP origin or runtime request. ~140 KB of font files in the repo. Updating Geist means
+refreshing files and licenses by hand from a pinned commit.
+Revisit if: a product changes typefaces (put the new files and licenses in `src/fonts/` the same way), or the Google
+loader is fixed and vendoring stops paying for itself.
+
+## 2026-10-21 — Dependencies: pins follow a derived product's green CI; one Dependabot group for minor/patch
+
+**Context.** The template's pins (Payload 3.90.2, Next 16.3.8, `@types/node` 22) fell behind a product built from it,
+which runs Payload 3.91.0 / Next 16.4.2 / `@types/node` 24 green in CI. Four Dependabot groups (payload, react, next,
+dev-tools) meant up to four PRs a week to review alone, and Dependabot proposed `@types/node` 26 for a Node 24 runtime.
+
+**Decision.** Bump to the derived product's versions (README → Versions). Dependabot: a single `npm-minor-patch`
+group (`patterns: ['*']`, minor + patch); majors stay ungrouped, one PR each. `@types/node` majors are ignored — the
+types follow the runtime (`engines`, `.nvmrc`), bumped by hand with it. pnpm warns that Vite's optional `esbuild`
+peer (`^0.27 || ^0.28`) resolves to 0.25 (pulled by `drizzle-kit`); Vite 8 bundles with Rolldown, nothing breaks.
+Re-ran the 2026-10-20 migrate experiment on 3.91.0: with the last migration moved aside and `PAYLOAD_DB_PUSH=true`,
+`payload migrate` still did not push its column.
+
+**Consequences.** One red package blocks the whole weekly group: find it in the CI log, then either fix it in the
+group PR or add an `ignore` for that version and let the rest merge. Majors still need reading the changelog.
+Revisit if: group PRs are red more often than not (split out the offender), or the runtime moves to Node 26.
+
+## 2026-10-20 — Preview smoke: health + Lighthouse on every Vercel Preview, SEO without `is-crawlable`
+
+**Context.** CI tests a dev server; nothing looked at a real deployment (production build, Neon branch, Vercel
+functions) before merge. A sibling project runs a smoke job on Vercel's `deployment_status` event.
+
+**Decision.** `.github/workflows/preview-smoke.yml`: on a successful deployment whose environment starts with
+`Preview`, call `/api/health` (retries for cold starts; must contain `"ok":true`), run Lighthouse 12.8.2 (pinned, via
+`npx`, not a dependency) on `/` and `/changelog`, gate the scores with `scripts/lighthouse-check.mjs` (performance 0.8,
+accessibility / best-practices / SEO 0.9) and upload JSON + HTML reports as artifacts. Previews are behind Vercel
+Authentication, so requests carry `x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET`; **without the
+secret the job emits a notice and skips** — new products start without it. **SEO:** Vercel sends
+`X-Robots-Tag: noindex` on previews, so `is-crawlable` always fails there; the gate recomputes the SEO score from its
+weighted audits without that one audit (every other SEO audit still counts) rather than dropping SEO entirely.
+
+**Consequences.** Indexability of production is not checked anywhere — check `/robots.txt` and headers after the
+first production deploy. Lighthouse on shared runners is noisy; perf 0.8 (mobile emulation) may flake. The bypass
+header is sent on every request the audited page makes — fine while all requests are same-origin; revisit before
+adding third-party scripts.
+Revisit if: perf flakes (median of several runs, or `--preset=desktop`), third-party origins are added, or a
+production smoke is wanted (needs a separate, unprotected target).
+
+## 2026-10-20 — Accessibility floor: axe on every public page, serious/critical only, both themes
+
+**Context.** Nothing checked accessibility automatically. The first axe run found three real `serious` issues: white
+text on the orange button (3.6:1 light; 2.6:1 in dark mode), the green "improvement" tag on its own tint (4.3:1), and
+the language switcher's `aria-label="English"` on a link that shows `EN` (WCAG 2.5.3 label-in-name).
+
+**Decision.** `@axe-core/playwright` (dev). `tests/e2e/a11y.e2e.spec.ts` runs axe on each page in
+`tests/helpers/public-pages.ts` (shared with `devtools.e2e.spec.ts`) on desktop and mobile, in light and dark
+`prefers-color-scheme`, and fails on `serious`/`critical` only; all violations are attached to the report. Plus
+landmarks: one `<main>`, one `h1`, `<html lang>`. Fixes: tokens `--color-button` / `--color-button-hover` /
+`--color-on-button` and `--color-success-strong` (light and dark values), switcher name = visible code + visually
+hidden language name. Next's dev overlay (`nextjs-portal`) is excluded.
+
+**Consequences.** New public pages must be added to the shared list to be checked. `minor`/`moderate` findings don't
+fail CI. Axe can't judge announcements or focus order — those are rules in `src/components/AGENTS.md`.
+Revisit if: a page needs a justified exception (disable that rule for that selector, with a comment), or `moderate`
+findings start piling up in the attachments.
+
+## 2026-10-20 — Migrations are checked twice: statically, and applied to an empty database in CI
+
+**Context.** Local databases get their schema from Payload's dev push, so a migration that misses something is
+mended silently everywhere except production. A sibling project shipped a new collection whose migration created its
+tables but not its `<slug>_id` column in `payload_locked_documents_rels`; Payload reads that column on every write
+to any collection, so production broke on saving a user. That project also concluded that `payload migrate` pushes
+before migrating locally, which would make any "fresh database" check meaningless.
+
+**Finding (Payload 3.90.2, verified by experiment).** `payload migrate` does **not** push, whatever `PAYLOAD_DB_PUSH`
+says: the CLI sets `PAYLOAD_MIGRATING=true` before init, and `@payloadcms/db-postgres` skips `pushDevSchema` then.
+With the last migration file moved aside, an empty database stayed without its tables even with `PAYLOAD_DB_PUSH=true`.
+(The sibling project ran migrations through its own config, where push followed `NODE_ENV`.) Two more facts: the CLI
+applies the files in `src/migrations` sorted by name (`index.ts` is not consulted), and on a database that was ever
+pushed (a `batch = -1` row) migrate asks for confirmation and, without a TTY, **hangs**.
+
+**Decision.** (1) `tests/unit/migrations.unit.spec.ts` replays the `up()` SQL in file order, without a database:
+every collection from the sanitized config has its table, its `<slug>_id` in `payload_locked_documents_rels` (auth
+collections also in `payload_preferences_rels`), nothing alters or references a table before it exists, names are
+unique Payload timestamps, and `index.ts` lists them in the same order. (2) CI job `migrations`:
+`scripts/check-migrations.sh` refuses a non-local or non-empty database, applies all migrations with
+`PAYLOAD_DB_PUSH=false` under a 5-minute timeout, and checks every file was recorded; then `pnpm test:int` runs against
+that schema with push off. With the `auth_codes_id` column cut from its migration, migrate still succeeded — 34 int
+tests then failed with `column … auth_codes_id does not exist`, and the unit spec failed too.
+
+**Consequences.** A schema change without a matching migration fails the PR, not production. The CI run is ~2 minutes
+longer. The static parser understands Payload-generated SQL; hand-written migrations must keep that shape.
+Revisit if: Payload changes the migrate CLI (re-run the experiment in `scripts/check-migrations.sh`'s header), or a
+migration legitimately needs SQL the parser can't read.
+
+## 2026-10-20 — Daily encrypted database backup by email (supersedes 2026-10-01 "rely on Neon instant restore")
+
+**Context.** The 2026-10-01 decision relied on Neon's history window. On the free plan that is 6 hours: it undoes the
+last mistake, not a deletion noticed a week later. Two sibling products had already added their own copy (sources: `docs/template-changes.md`).
+
+**Options.** (a) `pg_dump` to S3/R2 — Vercel functions have no Postgres binaries, and a bucket plus credentials is one
+more account per product. (b) Data-only dump in Node, encrypted, mailed to the owner — no new service; the mailbox
+keeps history. (c) Stay with Neon only.
+
+**Decision.** (b), with the stronger of the two sibling designs ( dump through Payload's pool in
+one `REPEATABLE READ READ ONLY` snapshot; restore refuses non-empty targets instead of deleting first; NOT NULL
+foreign keys order the inserts and nullable ones are filled in a second pass, so cycles work; JSON columns encoded by
+type) plus the other one's dump-version check. `src/lib/backup/` + `GET /api/cron/backup` (cron auth, `maxDuration`
+300, daily in `vercel.json`), gzip + AES-256-GCM with `BACKUP_KEY`, mailed via the mail gate as `operator` mail
+(base64 attachment: the Resend adapter sends JSON). Skips `auth_codes`, `users_sessions`, Payload locks/kv and
+`payload_migrations`. Off unless `BACKUP_EMAIL` + `CRON_SECRET`; once configured every failure (missing key, DB error,
+over 25 MB, mail refused) sends "backup NOT made". `pnpm backup:verify` (no DB) and `pnpm backup:restore` (empty
+target, one transaction, sequences reset, remote needs `ALLOW_REMOTE_DATABASE=1`). An int test restores a real dump
+with the real script into a fresh database and compares row counts.
+
+**Consequences.** Recovery point for Postgres: last night's copy (or inside Neon's window). Copies hold PII (emails),
+encrypted; the key lives only in the password manager. Vercel Blob media are **still not backed up** — Backups stays
+`partial` in the baseline. Restore needs the schema of the backup's date (code from that commit). Past ~25 MB
+encrypted, email no longer fits: the failure email says so.
+Revisit if: the copy nears the cap, users upload files (back up Blob too), or compliance needs storage outside email.
+
+## 2026-10-20 — Raw SQL allowed in `src/lib/backup/` only
+
+**Context.** `AGENTS.md` forbids raw SQL and Drizzle calls: data goes through the Payload Local API. A backup must read
+and write every table, including Payload's internal ones, inside one snapshot/transaction, and reset sequences — none
+of which the Local API offers.
+
+**Decision.** A narrow exception: SQL through `payload.db.pool` (the `pg` pool `@payloadcms/db-postgres` already
+holds) is allowed in `src/lib/backup/` only, and only for the dump/restore mechanics. Identifiers come from
+`information_schema` and are quoted; values are parameters. Tests may use the pool to verify backups. Everything else
+still uses the Local API.
+
+**Consequences.** One folder to review carefully when touching SQL; reviewers treat raw SQL anywhere else as a finding.
+Revisit if: Payload ships a supported export/import.
+
+## 2026-10-20 — `GET /api/health`: database round-trip, nothing else
+
+**Context.** No endpoint said "the app is up and can reach Postgres". Uptime monitors had to load a page, and
+Playwright's `webServer.url` waited on `/`, which answers before Payload is initialised (a product built from the template had to
+point it at `/changelog` to force Payload's first-request schema push).
+
+**Decision.** `src/app/api/health/route.ts`, a plain Next route (the static segment wins over Payload's
+`api/[...slug]`; `src/proxy.ts` skips `/api`; e2e checks both). Body `{ ok, db: 'up'|'down', commit, checkedAt }`
+(`commit` = first 7 of `VERCEL_GIT_COMMIT_SHA`, else `local`), `Cache-Control: no-store`, 200/503. The database check
+is `payload.count({ collection: 'users' })` with a 5 s timeout — a COUNT returns no documents (Payload's
+`find({ limit: 0 })` would mean "no limit", so it is not used). No counts or hosts in the response. Failures go to
+`captureServerError`. `playwright.config.ts` waits on it; Playwright keeps polling while it answers 503.
+Builder pattern from a sibling product.
+
+**Consequences.** Each call is one tiny query; a monitor polling every minute keeps a Neon compute awake (scale-to-zero
+won't kick in) — poll less often if that matters.
+Revisit if: products need deeper checks (queues, third parties) — add them as separate fields, keep `ok` meaning "serving".
+
+## 2026-10-20 — Mail gate: only login codes leave previews and the sandbox sender
+
+**Context.** Previews usually share the production Resend key and sender and run on a branch of the production
+database, so an invite or notification triggered on a preview URL would reach real people from the production domain.
+The `@resend.dev` sandbox sender delivers only to the Resend account owner; other mail from it is dropped silently.
+The template sends only login codes today; products add the rest.
+
+**Decision.** `src/lib/mail-gate.ts` (ported from a sibling product): `sendMail(payload, kind, message)` is
+the one door. `login-code` always passes (signing in to a preview must work); `operator` (backup reports to
+`BACKUP_EMAIL`) is refused on previews but allowed from the sandbox, which delivers to the owner; `general` is refused
+on previews and from the sandbox. Refusals and a missing `RESEND_API_KEY` come back as a result, not an exception.
+`EMAIL_FROM_ADDRESS` accepts `Name <address>`; the name replaces the site name as the sender name.
+`src/features/AGENTS.md` tells agents to use the gate for any new mail.
+
+**Consequences.** Testing invite mail end-to-end needs production or a local run with a verified sender. A product
+whose previews have their own Resend key and sender can relax the preview rule there.
+Revisit if: previews get separate mail credentials, or a product needs preview mail to a fixed test inbox.
+
+## 2026-10-20 — Cron routes fail closed without `CRON_SECRET`
+
+**Context.** Vercel Cron calls routes with `Authorization: Bearer $CRON_SECRET`. The common pattern
+`!secret || header === …` opens the route whenever the secret is missing — on previews, which usually don't get the
+variable and whose database is a branch of production. A sibling product had exactly that bug in its backup route.
+
+**Decision.** `src/lib/cron-auth.ts` (ported from two sibling products): with a secret, the header must match
+exactly, compared as SHA-256 digests with `timingSafeEqual` (constant time, any length); without one, allowed only when
+`VERCEL_ENV` is unset (local runs). Env is a parameter, so every branch is unit-tested. `CRON_SECRET` must be ≥ 16
+characters (`env.ts`).
+
+**Consequences.** Set `CRON_SECRET` in Vercel (Production) before relying on any cron; without it the cron calls get
+401 and the job silently doesn't run — the backup's "no email that day" rule makes that visible.
+Revisit if: Vercel signs cron requests some other way.
+
+## 2026-10-20 — Blob media: `preview/` prefix, same `media` columns everywhere
+
+**Context.** Preview and production deployments share one Vercel Blob store (the token is issued to both), but every
+preview has its own Neon branch. Ids and file names drift apart, so a preview upload can write to a production path
+and replace the file; Blob overwrites and deletes are permanent. Separately, `@payloadcms/storage-vercel-blob` adds
+`prefix` and `_objectKey` fields to `media` only when the plugin is enabled (token set). Migrations are generated
+locally without a token, so they never created those columns — production with a Blob token would query columns that
+don't exist.
+
+**Decision.** The plugin's own per-collection `prefix` option, set by `src/lib/blob-prefix.ts`: `<VERCEL_ENV>/` for
+every non-production Vercel environment (`preview/`, and `development/` for `vercel dev`), none for production (stored
+URLs keep resolving) and none locally (files go to `./media`). Reads and deletes use the `prefix` stored on each row.
+`alwaysInsertFields: true` keeps the `media` schema identical with and without a token; migration
+`20261020_095132_media_blob_fields` adds `prefix` (default `''`) and `_objectkey`. Pattern from a sibling product,
+where it was a hand-built path; here the plugin does it.
+
+**Consequences.** Preview uploads accumulate under `preview/` and are never cleaned up automatically — delete the
+folder from the Blob store now and then. Rows a preview inherits from production keep `prefix = ''` and still show
+the production files; deleting such a row on a preview would delete the production file, so don't.
+Revisit if: previews get their own Blob store, or Payload v4 makes `alwaysInsertFields` the default.
+
+## 2026-10-20 — Local tooling refuses remote databases; push is local-only
+
+**Context.** Push and the scripts used whatever `DATABASE_URL` the process saw. One `vercel env pull` (which writes
+production secrets into `.env*.local`) followed by `pnpm dev` would push the dev schema into Neon production — push
+drops columns it doesn't know. `pnpm seed` would write a demo admin into production. The decision on MCP guards
+already noted "a production `DATABASE_URL` in your local `.env` would be used by `pnpm seed` and the dev server".
+
+**Decision.** `src/lib/database-target.ts` (ported from a sibling product, plus the seed guard of a product built from the template), with the
+resolved URL:
+
+- Push only when requested **and** the host is local (`localhost`, `127.0.0.1`, `::1`, `postgres`,
+  `host.docker.internal`) **and** `NODE_ENV !== 'production'`. No remote-push opt-in (the source had one for deploy builds;
+  here production changes through migrations only).
+- `payload.config.ts` refuses a remote database outside Vercel (`VERCEL`/`VERCEL_ENV` unset) unless
+  `ALLOW_REMOTE_DATABASE=1`. `NODE_ENV=production` alone does not exempt: orchestrators export it globally.
+- `create-admin` (and `backup:restore`) need `ALLOW_REMOTE_DATABASE=1` for a remote target, even on Vercel. The one
+  deliberate production use is in `docs/runbooks/production-admin.md`.
+- `seed` runs only on a Vercel Preview build or against a local database; no override.
+- The shell guard blocks commands that set `ALLOW_REMOTE_DATABASE=1`: it is a human's switch.
+- `seed` / `create-admin` now load `.env.development.local` before `.env`, like `next dev`, so they use the
+  checkout's database (`scripts/local-env.sh`).
+
+**Consequences.** Self-hosting outside Vercel needs `ALLOW_REMOTE_DATABASE=1` in the runtime env (documented in the
+guard's error). A typo'd local host name (e.g. a custom docker service) is treated as remote — add it to
+`LOCAL_HOSTS`. The guard runs when the Payload config loads, i.e. on the dev server's first Payload request, not on
+`next dev` boot.
+Revisit if: the template moves off Vercel, or a remote dev database becomes a normal setup.
+
+## 2026-10-20 — Connection string: explicit precedence, logged, `verify-full`
+
+**Context.** On Vercel the Neon integration puts a per-preview branch into `DATABASE_URL`, while `POSTGRES_URL` can
+still point at production. Code that read `POSTGRES_URL` first would make a preview write into production with no
+error. Neon's strings carry `sslmode=require`, which `pg` treats as `verify-full` today but will downgrade to libpq
+semantics (no certificate check) in its next major. An env file line `KEY=` produced an empty string, which failed
+validation (`z.url()`) or overrode a default instead of meaning "unset".
+
+**Decision.** `src/lib/database-url.ts` picks `DATABASE_URI` (hand-set) → `DATABASE_URL` → `POSTGRES_URL`, upgrades
+`require|prefer|verify-ca` to `verify-full` (URLs without `sslmode` — local Postgres — are untouched), and logs once
+per process `[db] using <SOURCE>: <host>/<db> · fingerprint <sha256(host)[:8]>` — never credentials. Vercel redacts
+hosts that look like secrets; the fingerprint survives, so production and preview logs can be compared. `env.ts`
+resolves `DATABASE_URL` through it (the rest of the code reads only `env.DATABASE_URL`) and drops empty values
+before validation. `int-setup.ts` deletes `DATABASE_URI` / `POSTGRES_URL` so they can't beat the test database.
+Ported from sibling products (selection and TLS; the `KEY=` fix).
+
+**Consequences.** A `DATABASE_URI` in a local env file wins over `DATABASE_URL` — the startup log line shows which.
+Revisit if `pg` changes `sslmode` semantics again or Neon's integration changes variable names.
+
+## 2026-10-20 — Agent file access: local env files yes, production env and `.vercel/` no
+
+**Context.** `CLAUDE.md` said reading `.env` / `.env.*` was denied, but the `deny` list in `.claude/settings.json` was
+commented out, so nothing was denied. Parallel checkouts now keep their database URLs and port in
+`.env.development.local` / `.env.test.local`, which agents need to create and fix.
+
+**Decision.** Allow Read/Edit/Write of `.env.development.local` and `.env.test.local`; deny Read/Edit/Write of
+`.env.production*` and `.vercel/**` (where `vercel pull` writes production settings and secrets). `.env` stays
+unlisted, so Claude Code asks. The shell guard blocks `vercel pull` / `vercel env pull`, pushes to `main`, and
+rolls back migrations only on a local scratch database named in the same command segment (a second segment
+cannot ride along). Settings, `CLAUDE.md` and `AGENTS.md` state the same rule; a unit test pins the settings.
+
+**Consequences.** Local secrets (`PAYLOAD_SECRET`, optional API keys) in the `.local` files are readable by agents —
+keep production values out of them. Codex has no file-permission layer; `AGENTS.md` states the rule.
+Revisit if production secrets ever need to live in a local file, or Claude Code changes its path-rule syntax.
+
+## 2026-10-20 — Multi-agent workflow: one story, one branch, one PR
+
+**Context.** Products from the template are built by several agents (Claude Code, Codex, Cursor, a home-server
+orchestrator running unattended sessions) plus the founder. Without shared rules they collide on migrations, guess
+at ambiguous stories, and open PRs too large to review.
+
+**Decision.** `AGENTS.md` (read by every agent) carries the rules: approved stories only; one story = one branch
+= one PR (agent-named branch, or the orchestrator's `agent/<task-id>`); ambiguity → conservative choice plus
+questions in the PR; schema/access stories sequential, UI-only in parallel; PRs under ~400 lines; P0/P1-only review
+rules. `.github/pull_request_template.md` and `docs/prompts/` give every agent the same PR shape and prompts.
+`next dev` writes a `nextjs-agent-rules` block into `AGENTS.md`; it is committed so the tree stays clean.
+
+**Consequences.** Review time goes to access control and migrations, not style. Unattended runs never block on a
+question; the human answers in the PR.
+Revisit if: two agents regularly need the same files at once, or review rules miss a class of incident.
+
+## 2026-10-20 — Codex parity: `pnpm check` on Stop, guards by hand
+
+**Context.** Codex does not read `CLAUDE.md` or `.claude/settings.json`, so a Codex session had no quality gate and
+no guards. Codex now supports `<repo>/.codex/hooks.json` (same event names as Claude Code; Stop accepts JSON or
+nothing on stdout, exit 2 + stderr continues the turn).
+
+**Decision.** `.codex/hooks.json` runs `scripts/agent-hooks/stop-check.mjs` on Stop: `pnpm check`, output on stderr,
+exit 2 on failure, one retry (`stop_hook_active`) so a session cannot loop forever. Shell/MCP guards are not ported:
+`AGENTS.md` (which Codex reads) states that they do not run there and the rules apply by hand.
+
+**Consequences.** Project hooks load only after the user trusts `.codex/` and approves the hook in `/hooks`. Whether
+hooks run in Codex cloud is undocumented — assume they do not.
+Revisit if Codex documents PreToolUse/shell hooks that could reuse `policy.mjs`.
+
+## 2026-10-20 — Dev environments: dev container, cloud bootstrap, parallel checkouts
+
+**Context.** Products from the template are built by several agents at once (cloud agents, a home-server
+orchestrator with one worktree per task) next to the founder's own checkout. The template assumed one checkout per
+machine: port 3000, databases `app` / `app_test`, Postgres on 5432, and a cloud setup that needed working sudo.
+
+**Decision.** (1) `.devcontainer/` with Postgres 18 as a compose service sharing the app's network namespace, so
+`.env.example` works unchanged; agent logins in named volumes shared by all projects. (2) `scripts/cloud-pg-start.sh`
+is the fast, idempotent "make sure Postgres is up" step (SessionStart hook in Claude Code on the web, Cursor
+`start`); it leaves an external Postgres alone and never fails just because sudo cannot elevate. (3) Each checkout
+can get its own databases and port via `scripts/local-env.sh`, written to `.env.development.local` /
+`.env.test.local`, which `pnpm dev` (`scripts/dev.mjs` — Next reads `PORT` only from the shell), Playwright and the
+`int` setup read first. Docker Postgres moves with `POSTGRES_HOST_PORT`.
+
+**Consequences.** `pnpm dev` goes through a 20-line wrapper. Without the `.local` files everything behaves as before
+(port 3000, `app` / `app_test`). The dev container has not been built in CI.
+Revisit if Next starts reading `PORT` from `.env` files, or if parallel agents move to throwaway cloud databases.
+
 ## 2026-10-01 — Agent rules as nested AGENTS.md; Node 24 and Postgres 18 everywhere
 
 **Rules.** Cursor-only `.cursor/rules/*.mdc` became nested `AGENTS.md` files (`src/collections`, `src/features`,
@@ -56,6 +437,9 @@ with — check it before relying on 18-only features.
 Revisit when Vercel adds the next Node LTS.
 
 ## 2026-10-01 — Backups: rely on Neon instant restore, document the Blob gap, drill quarterly
+
+**Superseded on 2026-10-20** by "Daily encrypted database backup by email" — the Postgres part only; the Blob gap
+and the quarterly drill still stand.
 
 **Context.** The template had no restore procedure. Neon keeps a plan-dependent history window; Vercel Blob has no
 native backup and deletes are permanent.
@@ -295,7 +679,7 @@ Revisit if: Vercel ships a read-only/scoped MCP mode, or Cursor runs MCP hooks i
 
 ## Passwordless login with email one-time codes
 
-Ported from hht-research-platform. No passwords to leak, reset or brute-force; admins are few and
+Ported from a sibling product. No passwords to leak, reset or brute-force; admins are few and
 already live in their inbox. Codes are HMAC-hashed, expire in 10 minutes, burn after 5 wrong tries;
 rate limits (3 per email / 15 min, 20 per IP / hour) are counted in Postgres because serverless
 instances share no memory. Session = our own signed cookie read by a Payload auth strategy, since

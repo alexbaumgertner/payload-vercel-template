@@ -23,11 +23,13 @@ export function LocaleSwitcher() {
           locale={locale}
           hrefLang={locale}
           lang={locale}
-          aria-label={t(locale)}
           aria-current={locale === current ? 'true' : undefined}
           className={styles.option}
         >
+          {/* The accessible name starts with the visible code (WCAG 2.5.3 "label in name"),
+              so "click EN" works for voice control and screen readers still hear the language. */}
           {locale.toUpperCase()}
+          <span className="visually-hidden"> {t(locale)}</span>
         </Link>
       ))}
     </div>

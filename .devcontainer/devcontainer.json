@@ -1,0 +1,25 @@
+// Agent logins live in global volumes shared by all projects (log in once).
+// One environment for Zed (dev containers), GitHub Codespaces and the devcontainer CLI.
+// The app container shares Postgres' network namespace, so DATABASE_URL from .env.example
+// (postgresql://app:app@127.0.0.1:5432/app) works unchanged.
+{
+  "name": "${localWorkspaceFolderBasename}",
+  "dockerComposeFile": "compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "shutdownAction": "stopCompose",
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "24" },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  // Agent logins survive container rebuilds.
+  "mounts": [
+    "source=devcontainer-claude-config,target=/home/vscode/.claude,type=volume",
+    "source=devcontainer-codex-config,target=/home/vscode/.codex,type=volume"
+  ],
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [3000],
+  "portsAttributes": { "3000": { "label": "next dev" } },
+  "remoteUser": "vscode"
+}

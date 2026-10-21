@@ -24,8 +24,16 @@ export default defineConfig({
       {
         extends: true,
         // Server actions are vi.mock'ed in browser tests, but Vite still crawls their imports;
-        // stubbing the Payload client keeps Node-only code out of the browser bundle.
-        resolve: { alias: { '@/lib/payload': emptyModule } },
+        // stubbing the Payload client and runtime keeps Node-only code (file-type, fs) out of the
+        // browser bundle. Without the bare `payload` alias, a service importing a runtime value
+        // (e.g. `APIError`) breaks Vite's dependency optimizer on a cold cache — i.e. on CI.
+        // The regex matches only the bare specifier: `payload/shared` etc. stay real.
+        resolve: {
+          alias: [
+            { find: '@/lib/payload', replacement: emptyModule },
+            { find: /^payload$/, replacement: emptyModule },
+          ],
+        },
         test: {
           name: 'browser',
           include: ['tests/browser/**/*.browser.spec.{ts,tsx}'],

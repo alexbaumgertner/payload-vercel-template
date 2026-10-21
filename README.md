@@ -9,29 +9,39 @@ What's inside out of the box:
 - Payload admin at `/admin` (users, media, waitlist, changelog); media goes to Vercel Blob when configured
 - **English + Russian** public site via next-intl: `/` (en) and `/ru`, language switcher, `<html lang>`, hreflang, browser-language detection; changelog entries translated in the admin with English fallback
 - **Passwordless login**: email → 6-digit one-time code (hashed, 10-min TTL, attempt and rate limits, no account enumeration), sent via Resend
-- Unit, integration (real Postgres) and e2e (desktop + mobile) tests
+- **SEO**: `robots.txt` that indexes production only, a sitemap per locale with hreflang, a generated share image per locale
+- **Operations**: `/api/health`, daily encrypted database backup by email, preview smoke (health + Lighthouse); fonts vendored, so builds need no network for them
+- Unit, integration (real Postgres), browser, e2e (desktop + mobile) and accessibility (axe) tests
 - `AGENTS.md` (root + per-folder), skills, a reviewer subagent, safety hooks, MCP config
 
 ## Versions
 
+Pinned exact; these are the versions a product built from this template runs green in CI.
+
 | Package                 | Version       | Why this one                                           |
 | ----------------------- | ------------- | ------------------------------------------------------ |
-| next                    | 16.3.8        | latest 16.x; Payload 3.90 supports `>=16.3.3 <17`      |
-| payload + @payloadcms/* | 3.90.2        | latest                                                 |
-| react / react-dom       | 19.3.0        | within Payload's `^19.2.1`                             |
+| next                    | 16.4.2        | latest 16.x; Payload 3.91 supports `>=16.3.3 <17`      |
+| payload + @payloadcms/* | 3.91.0        | latest                                                 |
+| react / react-dom       | 19.3.1        | within Payload's `^19.2.1`                             |
 | typescript              | 6.0.3         | typescript-eslint supports `<6.1` (TS 7 not yet)       |
-| zod                     | 4.6.5         | latest                                                 |
-| vitest / vite           | 5.0.3 / 8.3.1 | latest                                                 |
-| @playwright/test        | 1.63.0        | latest                                                 |
+| @types/node             | 24.19.2       | matches the Node 24 runtime; majors are ignored        |
+| zod                     | 4.6.7         | latest                                                 |
+| vitest / vite           | 5.0.5 / 8.3.4 | latest                                                 |
+| @playwright/test        | 1.64.1        | latest                                                 |
 | eslint                  | 9.39.5        | eslint-config-next plugins don't support ESLint 10 yet |
 | graphql                 | 16.14.2       | Payload peer `^16.8.1`                                 |
-| next-intl               | 4.14.8        | latest; peers `next ^16`, `react ^19`                  |
+| next-intl               | 4.14.9        | latest; peers `next ^16`, `react ^19`                  |
+
+Dependabot opens one weekly PR with every minor/patch update (`npm-minor-patch`); each major arrives as its own PR.
 
 ## Quick start
 
 Requirements: Node 24, pnpm 10, PostgreSQL 18 (local install or `docker compose up -d`).
 
-Click **Use this template** on GitHub (or `gh repo create my-app --template alexbaumgertner/payload-vercel-template --private --clone`), then rename the product in `package.json` and `src/config/site.ts`.
+Starting a real product? Follow **`docs/new-product.md`** (create from template, rename, Vercel + Neon, env vars per
+environment, agent environments, first cycle). In short: `gh repo create my-app --template alexbaumgertner/payload-vercel-template --private --clone`,
+then `node scripts/rename-product.mjs my-app "My App"`. Template improvements land in `docs/template-changes.md` with
+commit SHAs to cherry-pick.
 
 ```bash
 pnpm install
@@ -52,18 +62,19 @@ Add more users with `pnpm create-admin you@example.com` (there is no sign-up scr
 
 ## Scripts
 
-| Command                      | What it does                                                                |
-| ---------------------------- | --------------------------------------------------------------------------- |
-| `pnpm dev`                   | Dev server on port 3000 (Turbopack)                                         |
-| `pnpm check`                 | typecheck + lint + unit tests — the "am I done?" command                    |
-| `pnpm test:browser`          | Vitest Browser Mode: client components in real Chromium (via Playwright)    |
-| `pnpm test:browser:watch`    | Same, headed, re-runs on save — inspect the iframe with DevTools            |
-| `pnpm test:int`              | Vitest against the `app_test` Postgres database                             |
-| `pnpm test:e2e`              | Playwright, desktop + mobile (`pnpm exec playwright install chromium` once) |
-| `pnpm generate:types`        | Regenerate `src/payload-types.ts` after schema changes                      |
-| `pnpm migrate:create <name>` | Create a migration before merging schema changes                            |
-| `pnpm seed`                  | Idempotent demo data                                                        |
-| `pnpm create-admin <email>`  | Add a user who can sign in with an email code                               |
+| Command                                           | What it does                                                                    |
+| ------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `pnpm dev`                                        | Dev server on port 3000 (Turbopack)                                             |
+| `pnpm check`                                      | typecheck + lint + unit tests — the "am I done?" command                        |
+| `pnpm test:browser`                               | Vitest Browser Mode: client components in real Chromium (via Playwright)        |
+| `pnpm test:browser:watch`                         | Same, headed, re-runs on save — inspect the iframe with DevTools                |
+| `pnpm test:int`                                   | Vitest against the `app_test` Postgres database                                 |
+| `pnpm test:e2e`                                   | Playwright, desktop + mobile (`pnpm exec playwright install chromium` once)     |
+| `pnpm generate:types`                             | Regenerate `src/payload-types.ts` after schema changes                          |
+| `pnpm migrate:create <name>`                      | Create a migration before merging schema changes                                |
+| `pnpm seed`                                       | Idempotent demo data                                                            |
+| `pnpm create-admin <email>`                       | Add a user who can sign in with an email code                                   |
+| `node scripts/rename-product.mjs <slug> "<Name>"` | Rename a product created from the template (package, site name, README, AGENTS) |
 
 ## Testing layers
 
@@ -82,7 +93,8 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
 1. Import the repo in Vercel. `vercel.json` sets the build to `pnpm build:vercel` (runs `payload migrate`, then `next build`).
 2. Add the **Neon** integration from the Vercel Marketplace (gives `DATABASE_URL`, with a DB branch per preview) — use the pooled URL.
 3. Add **Vercel Blob** storage (gives `BLOB_READ_WRITE_TOKEN`) so media uploads persist.
-4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL`.
+4. Set `PAYLOAD_SECRET` and `NEXT_PUBLIC_SITE_URL` (your domain; canonical URLs, sitemap and share images use it).
+   Which variable goes into which environment: `docs/new-product.md` → Environment variables.
 5. Add **Resend** (Vercel Marketplace or resend.com): set `RESEND_API_KEY` and `EMAIL_FROM_ADDRESS` on a verified domain. In production, login fails loudly without them instead of pretending the code was sent.
 6. Optional — **Sentry**: set `SENTRY_DSN` to turn on error monitoring (server, client, Server Actions). Add
    `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` for readable stack traces. Without `SENTRY_DSN` nothing
@@ -91,8 +103,15 @@ Debugging: `pnpm test:browser:watch` opens Chromium with the component in an ifr
    views plus the typed product events in `src/lib/analytics.ts`. Default `none` sends nothing; visitors with Do Not
    Track / Global Privacy Control are never counted.
 8. Create the first user against the production database once, from your machine:
-   `DATABASE_URL=<neon-url> pnpm create-admin you@example.com` — then sign in at `/admin` with the emailed code.
-9. Before launch: set the Neon history window and run the restore drill once — `docs/runbooks/backup-restore.md`.
+   `DATABASE_URI='<neon-url>' ALLOW_REMOTE_DATABASE=1 pnpm create-admin you@example.com` — then sign in at `/admin`
+   with the emailed code. Local tooling refuses remote databases otherwise: `docs/runbooks/production-admin.md`.
+9. Backups: set `BACKUP_KEY` (`openssl rand -base64 32`, save it in your password manager), `BACKUP_EMAIL` and
+   `CRON_SECRET` for Production; a daily cron then mails an encrypted database copy. Media in Vercel Blob are not
+   included.
+10. Optional — **preview smoke**: in Vercel → Deployment Protection, create a _Protection Bypass for Automation_ and
+    store it as the GitHub secret `VERCEL_AUTOMATION_BYPASS_SECRET`. Every ready Preview then gets a health check and
+    Lighthouse on `/` and `/changelog` (`.github/workflows/preview-smoke.yml`); without the secret the job skips with a notice.
+11. Before launch: set the Neon history window and run the restore drill once — `docs/runbooks/backup-restore.md`.
 
 Schema workflow: local dev uses Payload push (auto-sync); before merging a collection change run `pnpm migrate:create <name>` and commit `src/migrations/*`.
 

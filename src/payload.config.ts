@@ -14,10 +14,22 @@ import { Users } from './collections/Users'
 import { WaitlistSignups } from './collections/WaitlistSignups'
 import { siteConfig } from './config/site'
 import { defaultLocale, localeLabels, locales } from './i18n/locales'
+import { mediaPrefix } from './lib/blob-prefix'
+import { announceDatabase } from './lib/database-url'
+import { parseSender } from './lib/mail-gate'
+import { assertDevDatabaseIsLocal, shouldPushSchema } from './lib/database-target'
 import { env } from './lib/env'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
+
+// Which variable and host this process connects to, in the build and runtime logs.
+announceDatabase()
+// Outside Vercel only a local database, unless ALLOW_REMOTE_DATABASE=1 (src/lib/database-target.ts).
+const databaseTarget = { ...process.env, DATABASE_URL: env.DATABASE_URL }
+assertDevDatabaseIsLocal(databaseTarget)
+
+const sender = parseSender(env.EMAIL_FROM_ADDRESS)
 
 export default buildConfig({
   serverURL: env.NEXT_PUBLIC_SITE_URL,
@@ -42,8 +54,8 @@ export default buildConfig({
   email: env.RESEND_API_KEY
     ? resendAdapter({
         apiKey: env.RESEND_API_KEY,
-        defaultFromAddress: env.EMAIL_FROM_ADDRESS,
-        defaultFromName: siteConfig.name,
+        defaultFromAddress: sender.address,
+        defaultFromName: sender.name ?? siteConfig.name,
       })
     : undefined,
   secret: env.PAYLOAD_SECRET,
@@ -55,14 +67,19 @@ export default buildConfig({
       connectionString: env.DATABASE_URL,
     },
     migrationDir: path.resolve(dirname, 'migrations'),
-    push: env.PAYLOAD_DB_PUSH,
+    // Dev push only into a local database; production changes through migrations.
+    push: shouldPushSchema(env.PAYLOAD_DB_PUSH, databaseTarget),
   }),
   sharp,
   plugins: [
     vercelBlobStorage({
       enabled: Boolean(env.BLOB_READ_WRITE_TOKEN),
-      collections: { media: true },
+      // Previews share the production Blob store: keep their uploads under `preview/`.
+      collections: { media: { prefix: mediaPrefix(process.env) } },
       token: env.BLOB_READ_WRITE_TOKEN,
+      // Same `media` columns (`prefix`, `_object_key`) with and without a Blob token, so migrations
+      // generated locally match production.
+      alwaysInsertFields: true,
     }),
   ],
 })

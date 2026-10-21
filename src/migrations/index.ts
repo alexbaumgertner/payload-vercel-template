@@ -1,6 +1,7 @@
 import * as migration_20260930_181743_initial from './20260930_181743_initial';
 import * as migration_20260930_185348_email_otp_auth from './20260930_185348_email_otp_auth';
 import * as migration_20261001_144024_localize_changelog from './20261001_144024_localize_changelog';
+import * as migration_20261020_095132_media_blob_fields from './20261020_095132_media_blob_fields';
 
 export const migrations = [
   {
@@ -16,6 +17,11 @@ export const migrations = [
   {
     up: migration_20261001_144024_localize_changelog.up,
     down: migration_20261001_144024_localize_changelog.down,
-    name: '20261001_144024_localize_changelog'
+    name: '20261001_144024_localize_changelog',
+  },
+  {
+    up: migration_20261020_095132_media_blob_fields.up,
+    down: migration_20261020_095132_media_blob_fields.down,
+    name: '20261020_095132_media_blob_fields'
   },
 ];

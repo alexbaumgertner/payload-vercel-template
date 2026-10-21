@@ -1,0 +1,88 @@
+name: Preview smoke
+
+# Runs against every Vercel Preview once Vercel reports the deployment as ready: the health
+# endpoint must answer 200 with "ok": true, and Lighthouse must meet the score gate on the
+# public pages (scripts/lighthouse-check.mjs; SEO is scored without `is-crawlable`, because
+# Vercel marks previews noindex). Production deployments are not touched.
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-smoke-${{ github.event.deployment.sha }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Health + Lighthouse (preview)
+    # Vercel names the environment "Preview" (or "Preview – <project>" with several projects).
+    if: >-
+      github.event.deployment_status.state == 'success' &&
+      startsWith(github.event.deployment.environment, 'Preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      URL: ${{ github.event.deployment_status.environment_url }}
+      # Previews sit behind Vercel Authentication. Vercel → Project → Settings → Deployment
+      # Protection → "Protection Bypass for Automation"; store the value as this repo secret.
+      BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+    steps:
+      # New products start without the secret: skip with a notice instead of failing.
+      - name: Check bypass secret
+        id: gate
+        run: |
+          if [ -z "$BYPASS" ]; then
+            echo "::notice title=Preview smoke skipped::VERCEL_AUTOMATION_BYPASS_SECRET is not set, so the protected preview can't be reached. Add the secret to enable this check."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Health endpoint
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          # The first request may hit a cold function (and a waking Neon branch): retry briefly.
+          body=$(curl -fsS --retry 5 --retry-delay 5 --retry-all-errors --max-time 30 \
+            -H "x-vercel-protection-bypass: $BYPASS" "$URL/api/health")
+          echo "$body"
+          echo "$body" | grep -q '"ok":true'
+
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.enabled == 'true'
+
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.enabled == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      # Lighthouse runs from npx at a pinned version, not as a project dependency.
+      # The bypass header goes on every request the page makes; with analytics and Sentry off
+      # (template default) all of them are same-origin.
+      - name: Lighthouse
+        if: steps.gate.outputs.enabled == 'true'
+        run: |
+          mkdir -p lighthouse
+          for page in home:/ changelog:/changelog; do
+            name="${page%%:*}"
+            path="${page#*:}"
+            # Warm the function and its caches first: a cold first hit costs ~20 performance points.
+            curl -fsS -o /dev/null --retry 3 -H "x-vercel-protection-bypass: $BYPASS" "$URL$path"
+            npx --yes lighthouse@12.8.2 "$URL$path" \
+              --chrome-flags="--headless=new --no-sandbox" \
+              --extra-headers="{\"x-vercel-protection-bypass\":\"$BYPASS\"}" \
+              --only-categories=performance,accessibility,best-practices,seo \
+              --output=json --output=html --output-path="./lighthouse/$name" --quiet
+          done
+
+      - name: Enforce score thresholds
+        if: steps.gate.outputs.enabled == 'true'
+        run: node scripts/lighthouse-check.mjs lighthouse/*.report.json
+
+      - uses: actions/upload-artifact@v7
+        if: always() && steps.gate.outputs.enabled == 'true'
+        with:
+          name: lighthouse-${{ github.event.deployment.sha }}
+          path: lighthouse/
+          retention-days: 14
