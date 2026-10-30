@@ -38,8 +38,10 @@ jobs:
         # The classifier runs from the base branch, so a PR can't loosen the rules it is judged by.
         # (Only the PR that first adds the script runs its own copy.)
         run: |
-          set -o pipefail
           script="$RUNNER_TEMP/risk-tier.mjs"
           git show "origin/$BASE_REF:scripts/risk-tier.mjs" > "$script" 2>/dev/null || cp scripts/risk-tier.mjs "$script"
-          node "$script" --base "origin/$BASE_REF" --check-signoff | tee risk.txt
+          status=0
+          node "$script" --base "origin/$BASE_REF" --check-signoff > risk.txt 2>&1 || status=$?
+          cat risk.txt
           { echo '```'; cat risk.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
