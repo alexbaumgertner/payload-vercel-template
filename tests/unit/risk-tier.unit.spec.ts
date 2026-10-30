@@ -1,7 +1,11 @@
 // @vitest-environment node
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { classify, hasHumanSignoff } from '../../scripts/risk-tier.mjs'
+import { changedFiles, classify, hasHumanSignoff } from '../../scripts/risk-tier.mjs'
 
 describe('risk tier', () => {
   it.each([
@@ -59,11 +63,67 @@ describe('human sign-off', () => {
     ['no SHA', '- [x] Human read the High-risk diff at'],
     ['quoted, not a list item', `> Human read the High-risk diff at ${sha.slice(0, 7)}`],
     ['empty body', ''],
+    ['indented code block', `    - [x] Human read the High-risk diff at ${sha.slice(0, 7)}`],
+    // Pasting the gate's own failure output into the Evidence block must not sign anything off.
+    [
+      'inside a fenced code block',
+      `## Evidence\n\n\`\`\`\nHigh-risk PR: …\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n\`\`\``,
+    ],
+    [
+      'inside a ~~~ fence',
+      `~~~text\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n~~~`,
+    ],
+    [
+      'inside an HTML comment (the template example)',
+      `<!--\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n-->`,
+    ],
+    [
+      'inside an unclosed HTML comment',
+      `<!-- - [x] Human read the High-risk diff at ${sha.slice(0, 7)}`,
+    ],
   ])('rejects %s', (_label, body) => {
     expect(hasHumanSignoff(body, sha)).toBe(false)
   })
 
+  it('accepts a real line after a closed code block and comment', () => {
+    const body = `\`\`\`\nlog\n\`\`\`\n<!-- note -->\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}`
+    expect(hasHumanSignoff(body, sha)).toBe(true)
+  })
+
   it('rejects when the head SHA is missing or malformed', () => {
     expect(hasHumanSignoff('- [x] Human read the High-risk diff at a1b2c3d', '')).toBe(false)
+  })
+})
+
+describe('changed files', () => {
+  function repo() {
+    const dir = mkdtempSync(path.join(tmpdir(), 'risk-tier-'))
+    const git = (...args: string[]) =>
+      execFileSync('git', ['-C', dir, '-c', 'user.name=t', '-c', 'user.email=t@t', ...args], {
+        encoding: 'utf8',
+      })
+    git('init', '-q', '-b', 'main')
+    mkdirSync(path.join(dir, 'src/features/auth'), { recursive: true })
+    writeFileSync(path.join(dir, 'src/features/auth/otp.ts'), 'export const x = 1\n'.repeat(20))
+    git('add', '-A')
+    git('commit', '-qm', 'base')
+    return { dir, git }
+  }
+
+  it('a rename out of a High path keeps the High source path', () => {
+    const { dir, git } = repo()
+    git('checkout', '-qb', 'feature')
+    mkdirSync(path.join(dir, 'src/lib'), { recursive: true })
+    git('mv', 'src/features/auth/otp.ts', 'src/lib/otp.ts')
+    git('commit', '-qm', 'move')
+    const cwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const files = changedFiles('main', 'HEAD', { includeWorking: false })
+      expect(files).toEqual(['src/features/auth/otp.ts', 'src/lib/otp.ts'])
+      expect(classify(files).tier).toBe('High')
+    } finally {
+      process.chdir(cwd)
+    }
   })
 })

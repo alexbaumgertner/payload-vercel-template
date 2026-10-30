@@ -51,8 +51,10 @@ without a concrete defect, anything you can't point to.
 
 ## Rounds
 
-- Round 1 reviews the whole diff against `main`. From round 2, review **only the commits since the last review**
-  (`git diff <last-reviewed-sha>..HEAD`) and do not repeat findings that are already posted or answered.
+- Round 1 reviews the whole diff against `main`. From round 2, review **only what changed since the last review**:
+  `git diff <last-reviewed-sha>` (new commits plus staged and unstaged fixes) and new untracked files. An empty
+  re-review diff means the findings were not addressed, not that the change is clean. Don't repeat findings that are
+  already posted or answered.
 - After **3 rounds** with new Important findings, stop reviewing and say: "Three rounds still find Important issues —
   step back and reconsider the approach." Don't start round 4.
 - Deep review (every file, `git blame` on touched functions, run the tests yourself) only for High-risk PRs

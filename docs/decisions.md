@@ -13,7 +13,10 @@ Adapted from the Claude Code team's write-up (claude.dev/blog/solving-code-revie
 context; `/ship` and `implement-story.md` run it before the PR, re-review only new commits from round 2, and stop
 after 3 rounds with Important findings. `scripts/risk-tier.mjs` sets Low / Medium / High from the touched paths, not
 the author; CI job `risk.yml` fails a High PR until a human adds `- [x] Human read the High-risk diff at <head sha>`
-(per-commit: a new push voids it; the classifier runs from the base branch so a PR can't loosen it). Bugs that get
+(per-commit: a new push voids it; only a rendered checklist item counts — not code blocks, HTML comments or quotes,
+so pasted logs can't sign off). The workflow runs on `pull_request_target`: GitHub uses the base branch's copy of the
+workflow and the classifier, and the PR head is only fetched as git objects to diff (`--no-renames`, so moving a file
+out of a High path still counts the source path). With `pull_request` a PR could edit the workflow and pass itself. Bugs that get
 past review go into `docs/review-misses.md` with a fix at the source; that table is the reviewer's eval set.
 
 **Not adopted.** Managed Code Review (Team/Enterprise only) and the Claude security-review GitHub Action (needs an
@@ -21,7 +24,8 @@ API key with per-token billing) — locally `/code-review` and `/security-review
 approvers, trusted-author lists, on-call: no second person, low PR volume. CODEOWNERS with "require code owner
 review": GitHub won't let a solo owner approve their own PR, so the sign-off line replaces it.
 
-**Consequences.** The "Risk tier" check must be made required in branch protection to have teeth. The sign-off is a
+**Consequences.** The "Risk tier" check must be made required in branch protection to have teeth. A change to the
+gate itself is judged by the old gate and takes effect after merge — the PR that introduced it had no gate at all. The sign-off is a
 convention agents are told never to write — the shell guard does not enforce it, since editing a PR body goes through
 GitHub, not the shell. Revisit if: a second maintainer joins (switch to CODEOWNERS + required reviews), an agent ever
 writes the sign-off line (move the check to a GitHub review by the owner), or `docs/review-misses.md` shows a Low/Medium

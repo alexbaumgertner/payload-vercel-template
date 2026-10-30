@@ -3,7 +3,8 @@
 //
 //   node scripts/risk-tier.mjs                 # this branch vs main, plus uncommitted work
 //   node scripts/risk-tier.mjs --base origin/main --json
-//   node scripts/risk-tier.mjs --check-signoff # CI: High needs the human sign-off line for the head commit
+//   node scripts/risk-tier.mjs --base origin/main --head FETCH_HEAD --check-signoff
+//                                              # CI: High needs the human sign-off line for the head commit
 //
 // Low    — docs, tests, copy only. Automated review + CI are enough.
 // Medium — ordinary product code. Read the reviewer's findings and the evidence.
@@ -67,26 +68,62 @@ export function classify(files) {
 }
 
 /**
- * A High-risk PR needs a ticked line written by the human, naming the head commit:
+ * The PR description as GitHub renders it, minus what a reader doesn't see as a checklist: fenced code blocks
+ * (```/~~~), HTML comments and indented code. Pasted logs and the template's commented example live there.
+ * @param {string} body
+ */
+export function renderedText(body) {
+  const withoutComments = body.replace(/<!--[\s\S]*?(?:-->|$)/g, '')
+  const out = []
+  let fence = null
+  for (const line of withoutComments.split(/\r?\n/)) {
+    const open = line.match(/^ {0,3}(`{3,}|~{3,})/)
+    if (fence) {
+      if (
+        open &&
+        open[1][0] === fence[0] &&
+        open[1].length >= fence.length &&
+        !line.trim().slice(open[1].length)
+      )
+        fence = null
+      continue
+    }
+    if (open) {
+      fence = open[1]
+      continue
+    }
+    out.push(line)
+  }
+  return out.join('\n')
+}
+
+/**
+ * A High-risk PR needs a ticked checklist line written by the human, naming the head commit:
  *   - [x] Human read the High-risk diff at <sha>
- * The SHA ties the sign-off to one commit: any later push (an agent's fix, a merge) voids it.
+ * The SHA ties the sign-off to one commit: any later push (an agent's fix, a merge) voids it. Only a rendered
+ * list item counts (at most 3 spaces of indent) — not one inside a code block, an HTML comment or a quote,
+ * so pasting this script's own failure message into the Evidence block can't sign anything off.
  * @param {string | undefined} body PR description
  * @param {string} headSha full SHA of the PR head
  */
 export function hasHumanSignoff(body, headSha) {
   if (!body || !/^[0-9a-f]{40}$/.test(headSha)) return false
-  const re = /^\s*[-*]\s*\[[xX]\]\s*Human read the High-risk diff at ([0-9a-f]{7,40})\b/gm
-  for (const m of body.matchAll(re)) if (headSha.startsWith(m[1])) return true
+  const re = /^ {0,3}[-*+] +\[[xX]\] +Human read the High-risk diff at ([0-9a-f]{7,40})\b/gm
+  for (const m of renderedText(body).matchAll(re)) if (headSha.startsWith(m[1])) return true
   return false
 }
 
-function changedFiles(base) {
+/**
+ * Files changed between `base` and `head`. Renames count as delete + add (`--no-renames`), so moving a file out of a
+ * High path still lists the High source path.
+ */
+export function changedFiles(base, head = 'HEAD', { includeWorking = !process.env.CI } = {}) {
   const git = (...args) => execFileSync('git', args, { encoding: 'utf8' })
-  const committed = git('diff', '--name-only', `${base}...HEAD`)
+  const committed = git('diff', '--name-only', '--no-renames', `${base}...${head}`)
   // Locally, uncommitted and untracked files count too — that's what the next commit will carry.
-  const working = process.env.CI
-    ? ''
-    : `${git('diff', '--name-only', 'HEAD')}\n${git('ls-files', '--others', '--exclude-standard')}`
+  const working = includeWorking
+    ? `${git('diff', '--name-only', '--no-renames', 'HEAD')}\n${git('ls-files', '--others', '--exclude-standard')}`
+    : ''
   return [...new Set(`${committed}\n${working}`.split('\n').filter(Boolean))].sort()
 }
 
@@ -96,7 +133,10 @@ function main(argv) {
     return i === -1 ? undefined : argv[i + 1]
   }
   const base = arg('--base') ?? 'main'
-  const result = classify(changedFiles(base))
+  const head = arg('--head') ?? 'HEAD'
+  const result = classify(
+    changedFiles(base, head, { includeWorking: !process.env.CI && head === 'HEAD' }),
+  )
 
   if (argv.includes('--json')) console.log(JSON.stringify(result, null, 2))
   else {

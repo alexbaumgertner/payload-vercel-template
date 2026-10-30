@@ -12,8 +12,11 @@ its order of "broken", severity tags, evidence rules, skip list and output forma
 ## What to review
 
 1. Base: `git diff main...HEAD` plus `git diff` and `git diff --staged` (uncommitted work counts).
-2. Re-review: if the caller gives you the SHA of the last reviewed commit, review only `git diff <sha>..HEAD` and the
-   list of findings already posted — never repeat one of those.
+2. Re-review: if the caller gives you the SHA of the last reviewed commit, review only what changed since then —
+   `git diff <sha>` (the working tree against that commit, so it includes new commits **and** staged and unstaged
+   fixes; `/ship` reviews before committing) plus new untracked files (`git ls-files --others --exclude-standard`).
+   If that diff is empty, say so and that the earlier findings are not addressed — never report it as clean.
+   Never repeat a finding from the list already posted.
 3. Depth: run `node scripts/risk-tier.mjs` (it reads the same diff). **High** → deep review: open every changed file
    in full, `git blame` the functions you flag, run the relevant tests (`pnpm test:unit`, `pnpm test:int`). Low or
    Medium → one standard pass over the diff and the files it touches.
