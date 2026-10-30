@@ -9,7 +9,7 @@ name: Risk tier
 # Trust: `pull_request_target` runs THIS file and the classifier as they are on the base branch, so a PR can't
 # edit the gate it is judged by (with `pull_request`, GitHub runs the PR's own copy of the workflow). The PR head
 # is fetched only as git objects to diff against; none of its code is checked out or run. Keep it that way:
-# no `ref:` to the PR head in checkout, no install/build, no secrets, read-only token.
+# no `ref:` to the PR head in checkout, no install/build, no secrets, read-only token (it must stay read-only).
 # Consequence: a change to this file or to risk-tier.mjs takes effect after it merges, not on its own PR.
 on:
   pull_request_target:
@@ -31,7 +31,8 @@ jobs:
         with:
           # Base branch (the default for pull_request_target) — never the PR head.
           fetch-depth: 0
-          persist-credentials: false
+          # Credentials stay configured: the PR-head fetch below needs them in private repos. The token is
+          # read-only (`permissions: contents: read`) and no PR code runs in this job, so nothing can use it.
 
       - uses: actions/setup-node@v7
         with:
