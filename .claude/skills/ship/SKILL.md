@@ -22,4 +22,4 @@ disable-model-invocation: true
 8. Commit with a conventional message (split unrelated changes into separate commits) and `git push -u origin <current-branch>`.
 9. Print a summary: what shipped, how it was verified (commands + result), risk tier, reviewer rounds and last
    result, follow-ups. If the tier is High, add: "High-risk — you need to read the diff of <files> and add the
-   sign-off line to the PR." Never write that line yourself.
+   `risk: human-read` label to the PR." Never add that label yourself.

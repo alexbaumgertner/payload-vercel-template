@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-import { changedFiles, classify, hasHumanSignoff } from '../../scripts/risk-tier.mjs'
+import { changedFiles, checkSignoff, classify, SIGNOFF_LABEL } from '../../scripts/risk-tier.mjs'
 
 describe('risk tier', () => {
   it.each([
@@ -49,49 +49,34 @@ describe('risk tier', () => {
 
 describe('human sign-off', () => {
   const sha = 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678'
+  const labeled = {
+    action: 'labeled',
+    label: { name: SIGNOFF_LABEL },
+    sender: { login: 'owner' },
+    pull_request: { head: { sha } },
+  }
+  const facts = { currentHeadSha: sha, senderRole: 'admin' }
 
-  it('accepts a ticked line naming the head commit (short or full SHA)', () => {
-    expect(
-      hasHumanSignoff(`text\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n`, sha),
-    ).toBe(true)
-    expect(hasHumanSignoff(`* [X] Human read the High-risk diff at ${sha}`, sha)).toBe(true)
+  it('accepts the owner adding the label on the current head', () => {
+    expect(checkSignoff(labeled, facts).ok).toBe(true)
+    expect(checkSignoff(labeled, { ...facts, senderRole: 'maintain' }).ok).toBe(true)
   })
 
   it.each([
-    ['unticked', `- [ ] Human read the High-risk diff at ${sha.slice(0, 7)}`],
-    ['older commit', '- [x] Human read the High-risk diff at 9999999'],
-    ['no SHA', '- [x] Human read the High-risk diff at'],
-    ['quoted, not a list item', `> Human read the High-risk diff at ${sha.slice(0, 7)}`],
-    ['empty body', ''],
-    ['indented code block', `    - [x] Human read the High-risk diff at ${sha.slice(0, 7)}`],
-    // Pasting the gate's own failure output into the Evidence block must not sign anything off.
     [
-      'inside a fenced code block',
-      `## Evidence\n\n\`\`\`\nHigh-risk PR: …\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n\`\`\``,
+      'a push (label still on the PR)',
+      { ...labeled, action: 'synchronize', label: undefined },
+      facts,
     ],
-    [
-      'inside a ~~~ fence',
-      `~~~text\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n~~~`,
-    ],
-    [
-      'inside an HTML comment (the template example)',
-      `<!--\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n-->`,
-    ],
-    [
-      'inside an unclosed HTML comment',
-      `<!-- - [x] Human read the High-risk diff at ${sha.slice(0, 7)}`,
-    ],
-  ])('rejects %s', (_label, body) => {
-    expect(hasHumanSignoff(body, sha)).toBe(false)
-  })
-
-  it('accepts a real line after a closed code block and comment', () => {
-    const body = `\`\`\`\nlog\n\`\`\`\n<!-- note -->\n- [x] Human read the High-risk diff at ${sha.slice(0, 7)}`
-    expect(hasHumanSignoff(body, sha)).toBe(true)
-  })
-
-  it('rejects when the head SHA is missing or malformed', () => {
-    expect(hasHumanSignoff('- [x] Human read the High-risk diff at a1b2c3d', '')).toBe(false)
+    ['a reopen', { ...labeled, action: 'reopened', label: undefined }, facts],
+    ['another label being added', { ...labeled, label: { name: 'bug' } }, facts],
+    ['the label being removed', { ...labeled, action: 'unlabeled' }, facts],
+    ['a sender with write only', labeled, { ...facts, senderRole: 'write' }],
+    ['a sender with no role', labeled, { ...facts, senderRole: undefined }],
+    ['a head that moved after labeling', labeled, { ...facts, currentHeadSha: 'f'.repeat(40) }],
+    ['an event without a head SHA', { ...labeled, pull_request: {} }, facts],
+  ])('rejects %s', (_label, event, f) => {
+    expect(checkSignoff(event, f).ok).toBe(false)
   })
 })
 

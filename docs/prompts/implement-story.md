@@ -20,7 +20,7 @@ and list it under "Open questions" in the PR.
 Before opening the PR, review your diff in a fresh context (Claude Code: the `reviewer` subagent; Codex: `/review`)
 against REVIEW.md. Fix Important findings; from round 2 review only the new commits; stop after 3 rounds that still
 find Important issues and write in the PR what kept coming back instead of looping. Paste the command output into the
-PR's Evidence section. Never add or tick the "Human read the High-risk diff" line — that one is for the human.
+PR's Evidence section. Never add the `risk: human-read` label — that one is for the human.
 
 Done when `pnpm format:check`, `pnpm check`, `pnpm test:int` and `pnpm test:e2e` pass, the story's Verification
 table is filled and its status is `done`. Open a PR on branch `<agent>/<NNN-slug>` (or the branch you were given)

@@ -1,10 +1,10 @@
 name: Risk tier
 
 # Sets the PR's risk tier from the files it touches (scripts/risk-tier.mjs) and writes it to the job summary.
-# High-risk PRs fail until the PR description has a ticked line written by a human that names the head commit:
-#   - [x] Human read the High-risk diff at <sha>
-# Any new push changes the head SHA and voids the sign-off. Editing the description re-runs only this job.
-# Make "Risk tier / risk" a required status check in branch protection for main.
+# High-risk PRs fail until the owner (admin/maintain) adds the label "risk: human-read" after reading the diff. Only
+# the run triggered by adding it passes, and only while the PR head is the commit it was added on: any later event (a
+# push, reopen, another label) re-runs this job and fails it — remove and re-add the label to sign off again. The PR
+# description is not read at all. Create the label once per repo; make "Risk tier / risk" a required status check.
 #
 # Trust: `pull_request_target` runs THIS file and the classifier as they are on the base branch, so a PR can't
 # edit the gate it is judged by (with `pull_request`, GitHub runs the PR's own copy of the workflow). The PR head
@@ -13,10 +13,11 @@ name: Risk tier
 # Consequence: a change to this file or to risk-tier.mjs takes effect after it merges, not on its own PR.
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, edited]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: risk-${{ github.event.pull_request.number }}
@@ -40,8 +41,9 @@ jobs:
 
       - name: Classify and check sign-off
         env:
-          # Passed through env, never interpolated into the script: the body is untrusted text.
-          PR_BODY: ${{ github.event.pull_request.body }}
+          # The script reads the event (label, sender, head) from GITHUB_EVENT_PATH and asks the API for the current
+          # head and the sender's role.
+          GITHUB_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}

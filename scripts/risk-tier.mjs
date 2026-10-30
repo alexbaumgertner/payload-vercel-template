@@ -4,7 +4,7 @@
 //   node scripts/risk-tier.mjs                 # this branch vs main, plus uncommitted work
 //   node scripts/risk-tier.mjs --base origin/main --json
 //   node scripts/risk-tier.mjs --base origin/main --head FETCH_HEAD --check-signoff
-//                                              # CI: High needs the human sign-off line for the head commit
+//                                              # CI: High needs the owner's sign-off label for the head commit
 //
 // Low    — docs, tests, copy only. Automated review + CI are enough.
 // Medium — ordinary product code. Read the reviewer's findings and the evidence.
@@ -15,6 +15,7 @@
 // in docs/review-misses.md.
 
 import { execFileSync } from 'node:child_process'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 /** Paths where a person always reads the diff. First match wins; the label goes into the report. */
@@ -67,50 +68,45 @@ export function classify(files) {
   return { tier, high, medium }
 }
 
-/**
- * The PR description as GitHub renders it, minus what a reader doesn't see as a checklist: fenced code blocks
- * (```/~~~), HTML comments and indented code. Pasted logs and the template's commented example live there.
- * @param {string} body
- */
-export function renderedText(body) {
-  const withoutComments = body.replace(/<!--[\s\S]*?(?:-->|$)/g, '')
-  const out = []
-  let fence = null
-  for (const line of withoutComments.split(/\r?\n/)) {
-    const open = line.match(/^ {0,3}(`{3,}|~{3,})/)
-    if (fence) {
-      if (
-        open &&
-        open[1][0] === fence[0] &&
-        open[1].length >= fence.length &&
-        !line.trim().slice(open[1].length)
-      )
-        fence = null
-      continue
-    }
-    if (open) {
-      fence = open[1]
-      continue
-    }
-    out.push(line)
-  }
-  return out.join('\n')
-}
+/** Added by the owner after reading the High-risk diff. Agents never add it. */
+export const SIGNOFF_LABEL = 'risk: human-read'
 
 /**
- * A High-risk PR needs a ticked checklist line written by the human, naming the head commit:
- *   - [x] Human read the High-risk diff at <sha>
- * The SHA ties the sign-off to one commit: any later push (an agent's fix, a merge) voids it. Only a rendered
- * list item counts (at most 3 spaces of indent) — not one inside a code block, an HTML comment or a quote,
- * so pasting this script's own failure message into the Evidence block can't sign anything off.
- * @param {string | undefined} body PR description
- * @param {string} headSha full SHA of the PR head
+ * A High-risk PR is signed off only by the act of adding SIGNOFF_LABEL — not by the label sitting on the PR, and not
+ * by anything in the description (parsing Markdown for a checklist line was bypassed three review rounds in a row).
+ * So this run must be the `labeled` event for that label, sent by someone with admin/maintain on the repo, and the PR
+ * head must still be the commit the label was added on. Any later event — a push, reopen, another label — re-runs
+ * the check, fails it, and the owner removes and re-adds the label after reading the new diff.
+ * @param {{ action?: string, label?: { name?: string }, sender?: { login?: string }, pull_request?: { head?: { sha?: string } } }} event
+ * @param {{ currentHeadSha: string, senderRole: string | undefined }} facts current PR head and the sender's repo role
+ * @returns {{ ok: true } | { ok: false, reason: string }}
  */
-export function hasHumanSignoff(body, headSha) {
-  if (!body || !/^[0-9a-f]{40}$/.test(headSha)) return false
-  const re = /^ {0,3}[-*+] +\[[xX]\] +Human read the High-risk diff at ([0-9a-f]{7,40})\b/gm
-  for (const m of renderedText(body).matchAll(re)) if (headSha.startsWith(m[1])) return true
-  return false
+export function checkSignoff(event, { currentHeadSha, senderRole }) {
+  if (event.action !== 'labeled' || event.label?.name !== SIGNOFF_LABEL)
+    return { ok: false, reason: `this run is not the "${SIGNOFF_LABEL}" label being added` }
+  if (!['admin', 'maintain'].includes(senderRole ?? ''))
+    return { ok: false, reason: `${event.sender?.login ?? 'sender'} has no admin/maintain role` }
+  const sha = event.pull_request?.head?.sha
+  if (!sha || sha !== currentHeadSha)
+    return { ok: false, reason: 'the PR head moved after the label was added' }
+  return { ok: true }
+}
+
+async function githubFacts(event) {
+  const { GITHUB_API_URL = 'https://api.github.com', GITHUB_REPOSITORY, GITHUB_TOKEN } = process.env
+  const get = async (path) => {
+    const res = await fetch(`${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}${path}`, {
+      headers: { authorization: `Bearer ${GITHUB_TOKEN}`, accept: 'application/vnd.github+json' },
+    })
+    if (!res.ok) throw new Error(`GET ${path}: ${res.status}`)
+    return res.json()
+  }
+  const pr = await get(`/pulls/${event.pull_request.number}`)
+  const login = event.sender?.login
+  const perm = login
+    ? await get(`/collaborators/${encodeURIComponent(login)}/permission`)
+    : undefined
+  return { currentHeadSha: pr.head.sha, senderRole: perm?.role_name }
 }
 
 /**
@@ -130,7 +126,7 @@ export function changedFiles(base, head = 'HEAD', { includeWorking = !process.en
   return [...new Set(files.filter(Boolean))].sort()
 }
 
-function main(argv) {
+async function main(argv) {
   const arg = (name) => {
     const i = argv.indexOf(name)
     return i === -1 ? undefined : argv[i + 1]
@@ -149,17 +145,19 @@ function main(argv) {
   }
 
   if (argv.includes('--check-signoff') && result.tier === 'High') {
-    const sha = process.env.HEAD_SHA ?? ''
-    if (!hasHumanSignoff(process.env.PR_BODY, sha)) {
+    const event = JSON.parse(readFileSync(process.env.GITHUB_EVENT_PATH ?? '', 'utf8'))
+    const sha = event.pull_request.head.sha.slice(0, 7)
+    const verdict = checkSignoff(event, await githubFacts(event))
+    if (!verdict.ok) {
       console.error(
-        `\nHigh-risk PR: read the diff of the files above, then add to the PR description:\n` +
-          `- [x] Human read the High-risk diff at ${sha.slice(0, 7)}\n` +
-          `(Agents never write this line. A new push needs a new line with the new SHA.)`,
+        `\nHigh-risk PR, no sign-off for ${sha}: ${verdict.reason}.\n` +
+          `Read the diff of the files above, then (re-)add the label "${SIGNOFF_LABEL}" — remove it first if it's already on.\n` +
+          `(Agents never add this label. A new push needs it added again.)`,
       )
       process.exit(1)
     }
-    console.log(`\nHuman sign-off found for ${sha.slice(0, 7)}.`)
+    console.log(`\nSigned off by ${event.sender.login} at ${sha}.`)
   }
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) main(process.argv.slice(2))
+if (process.argv[1] === fileURLToPath(import.meta.url)) await main(process.argv.slice(2))

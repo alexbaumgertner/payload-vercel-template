@@ -167,8 +167,8 @@ Full contract: `REVIEW.md` (what "broken" means here, severity tags, evidence, r
   findings, stop and rethink the approach instead of looping (unattended runs too).
 - **Risk sets human attention, not the author:** `node scripts/risk-tier.mjs` → Low (docs/tests/copy: CI + review
   are enough), Medium (read the findings and evidence), High (auth, access, collections, migrations, CI, agent guards,
-  env, deploy config, deps: a human reads the diff). CI job "Risk tier" fails a High PR until the description has
-  `- [x] Human read the High-risk diff at <head sha>` — **agents never write or tick that line**, and a new push voids it.
+  env, deploy config, deps: a human reads the diff). CI job "Risk tier" fails a High PR until the owner adds the label
+  `risk: human-read` on the head commit — **agents never add, remove or re-add that label**, and a new push voids it.
 - **Misses feed back:** a bug that got past review gets a row in `docs/review-misses.md` and a fix at the source
   (`REVIEW.md`, a rule here, a lint rule, a test, or a path moved up a tier). A review comment you see twice is a rule.
 - **Learning the code:** ask for an explainer of the slice you're about to change (`/explain`) instead of reading

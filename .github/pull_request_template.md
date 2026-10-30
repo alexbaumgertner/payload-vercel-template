@@ -44,10 +44,8 @@ migration / flag to turn off / env var to restore, in order.>
 - [ ] New env vars to add in Vercel: <names or "none">
 - [ ] Checked on the Vercel Preview at 360px and desktop
 
-<!-- High-risk only. Written by the human after reading the diff of the High files — agents never add or tick this.
-A new push needs a new line with the new head SHA.
-- [x] Human read the High-risk diff at <sha>
--->
+<!-- High-risk only: the owner signs off by adding the label "risk: human-read" after reading the diff of the High
+files — agents never add it. A new push voids it: remove and re-add the label. -->
 
 ## Open questions
 
