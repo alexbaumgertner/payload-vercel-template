@@ -126,4 +126,26 @@ describe('changed files', () => {
       process.chdir(cwd)
     }
   })
+
+  it('non-ASCII file names are matched as written, not C-quoted', () => {
+    const { dir, git } = repo()
+    git('checkout', '-qb', 'feature')
+    writeFileSync(path.join(dir, 'src/features/auth/café.ts'), 'export const y = 1\n')
+    git('add', '-A')
+    git('commit', '-qm', 'unicode')
+    writeFileSync(path.join(dir, 'src/features/auth/naïve.ts'), 'export const z = 1\n')
+    const cwd = process.cwd()
+    process.chdir(dir)
+    try {
+      const committed = changedFiles('main', 'HEAD', { includeWorking: false })
+      expect(committed).toEqual(['src/features/auth/café.ts'])
+      expect(classify(committed).tier).toBe('High')
+      expect(changedFiles('main', 'HEAD', { includeWorking: true })).toEqual([
+        'src/features/auth/café.ts',
+        'src/features/auth/naïve.ts',
+      ])
+    } finally {
+      process.chdir(cwd)
+    }
+  })
 })

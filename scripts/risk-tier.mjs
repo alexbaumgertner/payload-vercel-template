@@ -115,16 +115,19 @@ export function hasHumanSignoff(body, headSha) {
 
 /**
  * Files changed between `base` and `head`. Renames count as delete + add (`--no-renames`), so moving a file out of a
- * High path still lists the High source path.
+ * High path still lists the High source path. Output is NUL-delimited (`-z`): without it git C-quotes non-ASCII names
+ * (`"src/features/auth/caf\303\251.ts"`) and the anchored High patterns miss them.
  */
 export function changedFiles(base, head = 'HEAD', { includeWorking = !process.env.CI } = {}) {
-  const git = (...args) => execFileSync('git', args, { encoding: 'utf8' })
-  const committed = git('diff', '--name-only', '--no-renames', `${base}...${head}`)
+  const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).split('\0')
+  const files = git('diff', '-z', '--name-only', '--no-renames', `${base}...${head}`)
   // Locally, uncommitted and untracked files count too — that's what the next commit will carry.
-  const working = includeWorking
-    ? `${git('diff', '--name-only', '--no-renames', 'HEAD')}\n${git('ls-files', '--others', '--exclude-standard')}`
-    : ''
-  return [...new Set(`${committed}\n${working}`.split('\n').filter(Boolean))].sort()
+  if (includeWorking)
+    files.push(
+      ...git('diff', '-z', '--name-only', '--no-renames', 'HEAD'),
+      ...git('ls-files', '-z', '--others', '--exclude-standard'),
+    )
+  return [...new Set(files.filter(Boolean))].sort()
 }
 
 function main(argv) {
