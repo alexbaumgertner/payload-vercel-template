@@ -50,6 +50,7 @@ docs/stories/         user stories with acceptance criteria → tests (template:
 docs/baseline.md      status of auth, i18n, headers, backups, monitoring, analytics, CI, deps
 docs/runbooks/        human-only procedures (backup & restore) — agents read, never execute against production
 docs/spikes/ · docs/incidents/   research answers and blameless write-ups (templates: _template.md)
+docs/review-misses.md   bugs that got past review → the reviewer's eval set · REVIEW.md: the review contract
 docs/security/        review ledger (open/resolved findings) · docs/new-product.md: starting a product from this template
 docs/template-changes.md   template improvements with commit SHAs that derived repos cherry-pick
 ```
@@ -136,7 +137,8 @@ Several copies of the repo (worktrees, parallel agents) can run side by side on 
 
 1. User-facing features start as a story in `docs/stories/` (`/feature`): approval → failing tests per criterion → code.
 2. Other tasks touching >3 files or the data model: plan first, wait for approval.
-3. Verify: `pnpm check`, `pnpm test:int`, `pnpm test:e2e`; check UI in the browser (Chrome DevTools MCP), then `reviewer`.
+3. Verify: `pnpm check`, `pnpm test:int`, `pnpm test:e2e`; check UI in the browser (Chrome DevTools MCP), then `reviewer`
+   (see "Code review"). Show the output of what you ran — "done" without evidence is not done.
    Every safety check you add (guard, env gate, access rule, migration test): break what it protects, see it fail,
    restore — and say so in the commit body.
 4. Conventional commits (`feat:`, `fix:`, `chore:` …), one logical change per commit; update `docs/baseline.md`.
@@ -155,9 +157,24 @@ Several copies of the repo (worktrees, parallel agents) can run side by side on 
 - PR description: story id, which criteria are covered by which tests, anything left for the human (migration to
   review, env var to add in Vercel), open questions. Template: `.github/pull_request_template.md`.
 
-## Code Review Rules
+## Code review
 
-Report only P0/P1 findings.
+Full contract: `REVIEW.md` (what "broken" means here, severity tags, evidence, rounds, output). Process:
+
+- **Before the PR:** the author's agent runs the checks, then a reviewer in a fresh context (`reviewer` subagent,
+  Codex `/review`, `/code-review`). Every Important finding is fixed or answered in one line.
+- **Rounds converge:** from round 2 review only the new commits; no repeated findings; after 3 rounds with Important
+  findings, stop and rethink the approach instead of looping (unattended runs too).
+- **Risk sets human attention, not the author:** `node scripts/risk-tier.mjs` → Low (docs/tests/copy: CI + review
+  are enough), Medium (read the findings and evidence), High (auth, access, collections, migrations, CI, agent guards,
+  env, deploy config, deps: a human reads the diff). CI job "Risk tier" fails a High PR until the owner adds the label
+  `risk: human-read` on the head commit — **agents never add, remove or re-add that label**, and a new push voids it.
+- **Misses feed back:** a bug that got past review gets a row in `docs/review-misses.md` and a fix at the source
+  (`REVIEW.md`, a rule here, a lint rule, a test, or a path moved up a tier). A review comment you see twice is a rule.
+- **Learning the code:** ask for an explainer of the slice you're about to change (`/explain`) instead of reading
+  every diff.
+
+Short P0/P1 list for tools that only read this file (Codex review) — report only P0/P1 findings:
 
 - P0: any change that could expose non-public data (drafts, other users' records, emails) to anonymous users.
 - P1: a public read or other Local API call that bypasses access control (public reads need `overrideAccess: false`).
