@@ -55,7 +55,12 @@ describe('human sign-off', () => {
     sender: { login: 'owner' },
     pull_request: { head: { sha } },
   }
-  const facts = { currentHeadSha: sha, senderRole: 'admin' }
+  const facts = {
+    currentHeadSha: sha,
+    currentLabels: [SIGNOFF_LABEL],
+    senderRole: 'admin',
+    runAttempt: 1,
+  }
 
   it('accepts the owner adding the label on the current head', () => {
     expect(checkSignoff(labeled, facts).ok).toBe(true)
@@ -75,6 +80,9 @@ describe('human sign-off', () => {
     ['a sender with no role', labeled, { ...facts, senderRole: undefined }],
     ['a head that moved after labeling', labeled, { ...facts, currentHeadSha: 'f'.repeat(40) }],
     ['an event without a head SHA', { ...labeled, pull_request: {} }, facts],
+    // "Re-run jobs" replays the original labeled event after the owner revoked it.
+    ['a re-run of an earlier labeled run', labeled, { ...facts, runAttempt: 2 }],
+    ['a label removed since it was added', labeled, { ...facts, currentLabels: ['bug'] }],
   ])('rejects %s', (_label, event, f) => {
     expect(checkSignoff(event, f).ok).toBe(false)
   })

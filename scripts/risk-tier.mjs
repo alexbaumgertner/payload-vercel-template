@@ -75,15 +75,22 @@ export const SIGNOFF_LABEL = 'risk: human-read'
  * A High-risk PR is signed off only by the act of adding SIGNOFF_LABEL — not by the label sitting on the PR, and not
  * by anything in the description (parsing Markdown for a checklist line was bypassed three review rounds in a row).
  * So this run must be the `labeled` event for that label, sent by someone with admin/maintain on the repo, and the PR
- * head must still be the commit the label was added on. Any later event — a push, reopen, another label — re-runs
- * the check, fails it, and the owner removes and re-adds the label after reading the new diff.
+ * head must still be the commit the label was added on, with the label still on the PR. Any later event — a push,
+ * reopen, another label — re-runs the check, fails it, and the owner removes and re-adds the label after reading the
+ * new diff. A re-run ("Re-run jobs") replays the original event and sender, so it would bring back a sign-off the
+ * owner revoked: only the first attempt of a run counts.
  * @param {{ action?: string, label?: { name?: string }, sender?: { login?: string }, pull_request?: { head?: { sha?: string } } }} event
- * @param {{ currentHeadSha: string, senderRole: string | undefined }} facts current PR head and the sender's repo role
+ * @param {{ currentHeadSha: string, currentLabels: string[], senderRole: string | undefined, runAttempt: number }} facts
+ *   current PR head and labels, the sender's repo role, and GITHUB_RUN_ATTEMPT
  * @returns {{ ok: true } | { ok: false, reason: string }}
  */
-export function checkSignoff(event, { currentHeadSha, senderRole }) {
+export function checkSignoff(event, { currentHeadSha, currentLabels, senderRole, runAttempt }) {
   if (event.action !== 'labeled' || event.label?.name !== SIGNOFF_LABEL)
     return { ok: false, reason: `this run is not the "${SIGNOFF_LABEL}" label being added` }
+  if (runAttempt !== 1)
+    return { ok: false, reason: 're-runs replay an old label event and never sign off' }
+  if (!currentLabels.includes(SIGNOFF_LABEL))
+    return { ok: false, reason: 'the label was removed after it was added' }
   if (!['admin', 'maintain'].includes(senderRole ?? ''))
     return { ok: false, reason: `${event.sender?.login ?? 'sender'} has no admin/maintain role` }
   const sha = event.pull_request?.head?.sha
@@ -106,7 +113,12 @@ async function githubFacts(event) {
   const perm = login
     ? await get(`/collaborators/${encodeURIComponent(login)}/permission`)
     : undefined
-  return { currentHeadSha: pr.head.sha, senderRole: perm?.role_name }
+  return {
+    currentHeadSha: pr.head.sha,
+    currentLabels: pr.labels.map((l) => l.name),
+    senderRole: perm?.role_name,
+    runAttempt: Number(process.env.GITHUB_RUN_ATTEMPT ?? 1),
+  }
 }
 
 /**

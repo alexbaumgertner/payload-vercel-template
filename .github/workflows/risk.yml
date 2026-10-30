@@ -3,7 +3,8 @@ name: Risk tier
 # Sets the PR's risk tier from the files it touches (scripts/risk-tier.mjs) and writes it to the job summary.
 # High-risk PRs fail until the owner (admin/maintain) adds the label "risk: human-read" after reading the diff. Only
 # the run triggered by adding it passes, and only while the PR head is the commit it was added on: any later event (a
-# push, reopen, another label) re-runs this job and fails it — remove and re-add the label to sign off again. The PR
+# push, reopen, another label) re-runs this job and fails it — remove and re-add the label to sign off again. "Re-run
+# jobs" never signs off (it replays the old event). The PR
 # description is not read at all. Create the label once per repo; make "Risk tier / risk" a required status check.
 #
 # Trust: `pull_request_target` runs THIS file and the classifier as they are on the base branch, so a PR can't
