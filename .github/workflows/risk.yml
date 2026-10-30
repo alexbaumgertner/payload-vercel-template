@@ -1,0 +1,45 @@
+name: Risk tier
+
+# Sets the PR's risk tier from the files it touches (scripts/risk-tier.mjs) and writes it to the job summary.
+# High-risk PRs fail until the PR description has a ticked line written by a human that names the head commit:
+#   - [x] Human read the High-risk diff at <sha>
+# Any new push changes the head SHA and voids the sign-off. Editing the description re-runs only this job.
+# Make "Risk tier / risk" a required status check in branch protection for main.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: risk-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  risk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Classify and check sign-off
+        env:
+          # Passed through env, never interpolated into the script: the body is untrusted text.
+          PR_BODY: ${{ github.event.pull_request.body }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        # The classifier runs from the base branch, so a PR can't loosen the rules it is judged by.
+        # (Only the PR that first adds the script runs its own copy.)
+        run: |
+          set -o pipefail
+          script="$RUNNER_TEMP/risk-tier.mjs"
+          git show "origin/$BASE_REF:scripts/risk-tier.mjs" > "$script" 2>/dev/null || cp scripts/risk-tier.mjs "$script"
+          node "$script" --base "origin/$BASE_REF" --check-signoff | tee risk.txt
+          { echo '```'; cat risk.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"

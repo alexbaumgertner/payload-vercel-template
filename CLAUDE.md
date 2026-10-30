@@ -49,7 +49,9 @@ pnpm test:e2e tests/e2e/landing.e2e.spec.ts --project desktop
   "Parallel checkouts"). **Denied:** `.env.production*` and `.vercel/**` (read, edit, write). `.env` is not allow-listed, so it prompts — use
   `.env.example` and `src/lib/env.ts` instead. The MCP guard denies Neon/Vercel write and secret tools.
 - **Skills:** `/feature` (story → approval → failing tests → code), `/new-collection`, `/ship` (check, types,
-  migration reminder, commit, push); auto-loaded `payload` and `db-migrations`. Subagent: `reviewer` (read-only).
+  migration reminder, risk tier, `reviewer` with a 3-round cap, commit, push), `/explain` (explainer of one slice of
+  the code); auto-loaded `payload` and `db-migrations`. Subagent: `reviewer` (read-only, fresh context, follows
+  `REVIEW.md`). Built-in `/code-review` and `/security-review` work too; run the latter on High-risk changes.
 - **Allow-listed** without a prompt: `pnpm typecheck|lint|check|test:unit|test:int|test:e2e|generate:types|generate:importmap`,
   `git status|diff|log`. `.claude/launch.json` starts `pnpm dev` for the preview pane.
 - Changing guard rules means updating `tests/unit/agent-guards.unit.spec.ts`.
