@@ -17,6 +17,20 @@ SHAs are those on the template's `main`. Template PRs are merged with merge comm
 stay valid; a phase entry lists one commit per item. After cherry-picking, re-run `pnpm generate:types` if the
 item touched collections, and read the item's entry in `docs/decisions.md`.
 
+## 2026-10-21 — Phase 5: AI baseline (proposal only)
+
+Nothing to cherry-pick: no code yet. `docs/decisions.md` "PROPOSED: provider-agnostic `src/lib/ai/`" and
+`docs/stories/004-ai-baseline.md` (draft) describe what to build, from:
+
+- sync-trainer@971a840: `src/lib/prompt.ts` (`fenceOff`), `tests/integration/prompt-fencing.test.ts`, `src/lib/budget.ts`, `src/lib/usage.ts`
+- chrome-extension-languadge-learn@44a8e14: `apps/cms/src/usage/ledger.ts`, `apps/cms/src/pipeline/retry.ts`,
+  `apps/cms/src/pipeline/translate.ts`, `apps/cms/src/cache/coalesce.ts`, `apps/cms/scripts/judge.ts`,
+  `docs/quality/2026-10-19/README.md`
+- hht-research-platform@aa0dc3d: `apps/worker/src/pipeline/ai.ts` (`escapeUntrusted`, tag-wrapped untrusted input)
+
+Follow-ups for those repos: sync-trainer checks the budget and records usage in separate steps (concurrent requests
+can overshoot); the judge script does not fence candidate outputs; hht-research-platform has no spend limit.
+
 ## 2026-10-21 — Phase 4: SEO, fonts, dependencies, template docs
 
 | Item                                | Commit    | Source (repo@sha: path)                                                                                                                                                          | What changed in adapting                                                                                                                                                                        | Tests                                                                                             |
