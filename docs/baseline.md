@@ -13,6 +13,7 @@ What every product built from this template gets out of the box. Update this tab
 | Monitoring         | done    | Sentry (server, client, Server Actions) when `SENTRY_DSN` is set; PII scrubbed; no-op otherwise                                                              |
 | Analytics          | done    | Typed `track()` catalog, no-op by default; Vercel adapter via `ANALYTICS_PROVIDER`; DNT/GPC respected, no PII                                                |
 | CI                 | done    | Actions: format, check, int, browser, e2e; migrations applied to an empty DB + int on that schema; no secrets needed                                         |
+| Code review        | done    | `REVIEW.md` contract; `reviewer` subagent (tags, 3-round cap, diff-only re-review); risk tiers + CI sign-off gate for High                                   |
 | Preview smoke      | done    | Every ready Vercel Preview: health + Lighthouse gate on `/` and `/changelog`; skips without the bypass secret                                                |
 | Agent environments | done    | Claude Code hooks/guards, Codex cloud + Claude Code on the web (`cloud-setup.sh`), dev container, Operator worktrees (`local-env.sh`); `docs/new-product.md` |
 | Health             | done    | `GET /api/health`: DB round-trip, 200/503, uncached, not localized; used by preview smoke                                                                    |

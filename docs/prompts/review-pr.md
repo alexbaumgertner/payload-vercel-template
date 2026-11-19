@@ -1,14 +1,15 @@
 # Review a PR
 
+Claude Code: `reviewer` subagent (it already follows `REVIEW.md`). Codex: `/review` with this prompt. Locally
+without a branch: `/code-review`, plus `/security-review` for High-risk changes.
+
 ```markdown
-Review the diff of this branch against main for story docs/stories/<NNN-slug>.md.
+Review this branch against main for <story or task>. Follow REVIEW.md: its order of "broken", the
+Important / Nit (max 3) / Pre-existing tags, path:line evidence, one finding per bug class, and its output format
+(count line first; "0 findings — ship it." when clean).
 
-Check, in this order, and report only real findings as blocker / should-fix / nit with file:line:
-
-1. Every acceptance criterion has a test that would fail without the change.
-2. Access control: public reads use overrideAccess: false; writes are owner-only; no data leaks to anonymous users.
-3. Migrations: present when collections changed, reversible, no data loss; payload-types.ts regenerated.
-4. Rules from AGENTS.md: Zod on inputs, error codes not sentences, messages in both locales, CSS Modules, 360px.
-5. Scope creep and unnecessary dependencies.
-   Do not rewrite the code; propose minimal fixes.
+Risk tier: run `node scripts/risk-tier.mjs`; deep review only for High.
+Round: <1 | n, last reviewed SHA <sha>, findings already posted: <list>> — from round 2 review only the new commits
+and don't repeat posted findings. If this is round 4+, don't review; say the approach needs rethinking.
+Do not rewrite the code; propose minimal fixes.
 ```
